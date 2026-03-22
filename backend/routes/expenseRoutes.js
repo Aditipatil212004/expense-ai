@@ -1,19 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/authMiddleware");
-const Expense = require("../models/Expense");
 
-router.post("/", auth, async (req, res) => {
-  const expense = await Expense.create({
-    ...req.body,
-    userId: req.user.id,
-  });
-  res.json(expense);
+// Example route
+router.get("/", (req, res) => {
+  res.send("Get all expenses");
 });
 
-router.get("/", auth, async (req, res) => {
-  const expenses = await Expense.find({ userId: req.user.id });
-  res.json(expenses);
+router.post("/", (req, res) => {
+  res.send("Add expense");
 });
 
-module.exports = router;
+module.exports = router; // ✅ MUST
