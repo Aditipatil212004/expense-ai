@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useState } from "react";
 import InputField from "../components/InputField";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import API from "../services/api";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -44,9 +45,9 @@ export default function LoginScreen({ navigation }) {
         onChangeText={setPassword}
       />
 
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Login</Text>
-      </TouchableOpacity>
+     <TouchableOpacity style={styles.button} onPress={login}>
+  <Text style={styles.buttonText}>Login</Text>
+</TouchableOpacity>
 
       <Text style={styles.footer}>
         Don't have an account?{" "}

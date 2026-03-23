@@ -27,8 +27,9 @@ exports.signup = async (req, res) => {
       user: { id: user._id, email: user.email },
     });
   } catch (err) {
-    res.status(500).json({ message: "Signup error" });
-  }
+  console.log("SIGNUP ERROR:", err); // 👈 ADD THIS
+  res.status(500).json({ message: "Signup error" });
+}
 };
 
 exports.login = async (req, res) => {
@@ -49,7 +50,8 @@ exports.login = async (req, res) => {
       token,
       user: { id: user._id, email: user.email },
     });
-  } catch (err) {
-    res.status(500).json({ message: "Login error" });
-  }
+  }catch (err) {
+  console.log("LOGIN ERROR:", err); // 👈 ADD THIS
+  res.status(500).json({ message: "Login error" });
+}
 };
