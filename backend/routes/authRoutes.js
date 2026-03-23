@@ -1,13 +1,9 @@
 const express = require("express");
 const router = express.Router();
 
-// Example route
-router.post("/login", (req, res) => {
-  res.send("Login route working");
-});
+const { signup, login } = require("../controllers/authController");
 
-router.post("/register", (req, res) => {
-  res.send("Register route working");
-});
+router.post("/signup", signup);  // ✅ IMPORTANT
+router.post("/login", login);
 
-module.exports = router; // ✅ MUST
+module.exports = router;
