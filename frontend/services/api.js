@@ -5,7 +5,6 @@ const API = axios.create({
   baseURL: "https://expense-ai-1.onrender.com/api",
 });
 
-// 🔥 Attach token automatically
 API.interceptors.request.use(async (req) => {
   const token = await AsyncStorage.getItem("token");
 

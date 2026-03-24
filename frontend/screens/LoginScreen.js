@@ -18,8 +18,12 @@ export default function LoginScreen({ navigation }) {
 
     // ✅ Store token
     await AsyncStorage.setItem("token", token);
-
-    navigation.replace("Dashboard");
+// just reload navigation flow
+navigation.reset({
+  index: 0,
+  routes: [{ name: "Login" }],
+});
+    
   } catch (err) {
     alert("Login failed");
   }
