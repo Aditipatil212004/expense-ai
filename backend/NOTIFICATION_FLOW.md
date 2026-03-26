@@ -41,9 +41,12 @@ Response:
 
 Your app's mobile layer should read incoming SMS/push/app notifications and call the ingest API.
 For Android React Native, this is usually done with a native notification listener service and then posting message text to the endpoint above.
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
 
 
 ## Important
 
 Backend cannot directly read SMS/bank app notifications from your phone.
 You must run a mobile notification listener (Android native service) that forwards each message to `POST /api/expenses/notifications/ingest`.
+=======
+>>>>>>> main

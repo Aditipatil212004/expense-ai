@@ -19,6 +19,7 @@ const POLLING_INTERVAL_MS = 5000;
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
   const [liveNotification, setLiveNotification] = useState("");
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
   const [syncEnabled, setSyncEnabled] = useState(false);
   const [notificationSummary, setNotificationSummary] = useState({
     totalCredited: 0,
@@ -83,17 +84,72 @@ export default function DashboardScreen({ navigation }) {
 
     return () => clearInterval(interval);
   }, [getExpenses, getNotificationSummary, syncEnabled]);
+=======
+  const latestExpenseIdRef = useRef(null);
+
+  // ✅ FETCH EXPENSES
+  const getExpenses = useCallback(async (notifyOnNewTransaction = false) => {
+    try {
+      const res = await API.get("/expenses");
+      const fetchedExpenses = Array.isArray(res.data) ? res.data : [];
+
+      if (fetchedExpenses.length > 0) {
+        const newestExpense = fetchedExpenses[0];
+        const hasNewTransaction =
+          latestExpenseIdRef.current && newestExpense._id !== latestExpenseIdRef.current;
+
+        if (notifyOnNewTransaction && hasNewTransaction) {
+          setLiveNotification(
+            `New ${newestExpense.category} transaction: ₹${newestExpense.amount}`
+          );
+
+          setTimeout(() => {
+            setLiveNotification("");
+          }, 3000);
+        }
+
+        latestExpenseIdRef.current = newestExpense._id;
+      }
+
+      setExpenses(fetchedExpenses);
+    } catch (err) {
+      console.log(err);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      console.log("Dashboard refreshed 🔄");
+      getExpenses(false);
+    }, [getExpenses])
+  );
+
+  // 🔔 Near real-time polling for transaction notifications
+  useEffect(() => {
+    const interval = setInterval(() => {
+      getExpenses(true);
+    }, POLLING_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [getExpenses]);
+>>>>>>> main
 
   const total = Array.isArray(expenses)
     ? expenses.reduce((sum, item) => sum + item.amount, 0)
     : 0;
 
   const categoryMap = {};
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
   expenses
     .filter((e) => e.type !== "credit")
     .forEach((e) => {
       categoryMap[e.category] = (categoryMap[e.category] || 0) + e.amount;
     });
+=======
+  expenses.forEach((e) => {
+    categoryMap[e.category] = (categoryMap[e.category] || 0) + e.amount;
+  });
+>>>>>>> main
 
   const chartData = Object.keys(categoryMap).map((key) => ({
     name: key,
@@ -114,6 +170,7 @@ export default function DashboardScreen({ navigation }) {
         <Ionicons name="log-out-outline" size={24} color="red" />
       </View>
 
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
       <TouchableOpacity
         style={[styles.syncButton, syncEnabled && styles.syncButtonActive]}
         onPress={() => setSyncEnabled((prev) => !prev)}
@@ -132,12 +189,15 @@ export default function DashboardScreen({ navigation }) {
         Turn this on after your mobile app forwards bank/shop notification text to backend.
       </Text>
 
+=======
+>>>>>>> main
       {liveNotification ? (
         <View style={styles.notificationBanner}>
           <Text style={styles.notificationText}>{liveNotification}</Text>
         </View>
       ) : null}
 
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Credited</Text>
@@ -149,6 +209,9 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </View>
 
+=======
+      {/* CARD */}
+>>>>>>> main
       <LinearGradient colors={["#8b5cf6", "#6366f1"]} style={styles.card}>
         <Text style={styles.cardTitle}>This Month's Spending</Text>
         <Text style={styles.amount}>₹{total}</Text>
@@ -190,6 +253,10 @@ export default function DashboardScreen({ navigation }) {
         />
       )}
 
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
+=======
+      {/* TRANSACTIONS */}
+>>>>>>> main
       <View style={styles.row}>
         <Text style={styles.sectionTitle}>Recent Transactions</Text>
         <Text style={styles.seeAll}>See All</Text>
@@ -243,6 +310,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "bold",
   },
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
   syncButton: {
     marginTop: 16,
     paddingVertical: 10,
@@ -267,17 +335,27 @@ const styles = StyleSheet.create({
   },
   notificationBanner: {
     marginTop: 12,
+=======
+
+  notificationBanner: {
+    marginTop: 16,
+>>>>>>> main
     padding: 12,
     borderRadius: 10,
     backgroundColor: "#1f2937",
     borderColor: "#10b981",
     borderWidth: 1,
   },
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
+=======
+
+>>>>>>> main
   notificationText: {
     color: "#d1fae5",
     fontSize: 14,
     fontWeight: "600",
   },
+<<<<<<< codex/locate-real-time-transaction-notifications-6xvbir
   summaryRow: {
     flexDirection: "row",
     gap: 10,
@@ -303,6 +381,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 4,
   },
+=======
+
+>>>>>>> main
   card: {
     borderRadius: 20,
     padding: 20,
