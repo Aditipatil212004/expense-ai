@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,26 +14,58 @@ import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 
+const POLLING_INTERVAL_MS = 5000;
+
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
+  const [liveNotification, setLiveNotification] = useState("");
+  const latestExpenseIdRef = useRef(null);
 
   // ✅ FETCH EXPENSES
- const getExpenses = useCallback(async () => {
-  try {
-    const res = await API.get("/expenses");
-    console.log("FETCHED:", res.data);
-    setExpenses(Array.isArray(res.data) ? res.data : []);
-  } catch (err) {
-    console.log(err);
-  }
-}, []);
+  const getExpenses = useCallback(async (notifyOnNewTransaction = false) => {
+    try {
+      const res = await API.get("/expenses");
+      const fetchedExpenses = Array.isArray(res.data) ? res.data : [];
 
-useFocusEffect(
-  useCallback(() => {
-    console.log("Dashboard refreshed 🔄");
-    getExpenses();
-  }, [getExpenses])
-);
+      if (fetchedExpenses.length > 0) {
+        const newestExpense = fetchedExpenses[0];
+        const hasNewTransaction =
+          latestExpenseIdRef.current && newestExpense._id !== latestExpenseIdRef.current;
+
+        if (notifyOnNewTransaction && hasNewTransaction) {
+          setLiveNotification(
+            `New ${newestExpense.category} transaction: ₹${newestExpense.amount}`
+          );
+
+          setTimeout(() => {
+            setLiveNotification("");
+          }, 3000);
+        }
+
+        latestExpenseIdRef.current = newestExpense._id;
+      }
+
+      setExpenses(fetchedExpenses);
+    } catch (err) {
+      console.log(err);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      console.log("Dashboard refreshed 🔄");
+      getExpenses(false);
+    }, [getExpenses])
+  );
+
+  // 🔔 Near real-time polling for transaction notifications
+  useEffect(() => {
+    const interval = setInterval(() => {
+      getExpenses(true);
+    }, POLLING_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [getExpenses]);
 
   // ✅ SAFE TOTAL
   const total = Array.isArray(expenses)
@@ -43,31 +75,17 @@ useFocusEffect(
   // ✅ CATEGORY MAP
   const categoryMap = {};
   expenses.forEach((e) => {
-    categoryMap[e.category] =
-      (categoryMap[e.category] || 0) + e.amount;
+    categoryMap[e.category] = (categoryMap[e.category] || 0) + e.amount;
   });
 
   // ✅ CHART DATA
   const chartData = Object.keys(categoryMap).map((key) => ({
     name: key,
     amount: categoryMap[key],
-    color:
-      "#" +
-      Math.floor(Math.random() * 16777215).toString(16),
+    color: "#" + Math.floor(Math.random() * 16777215).toString(16),
     legendFontColor: "#fff",
     legendFontSize: 12,
   }));
-
-  // 🤖 AI INSIGHTS
-  const getInsights = () => {
-    if (!expenses.length) return "No data yet";
-
-    const topCategory = Object.keys(categoryMap).reduce((a, b) =>
-      categoryMap[a] > categoryMap[b] ? a : b
-    );
-
-    return `You are spending most on ${topCategory} 💸`;
-  };
 
   return (
     <View style={styles.container}>
@@ -81,16 +99,17 @@ useFocusEffect(
         <Ionicons name="log-out-outline" size={24} color="red" />
       </View>
 
+      {liveNotification ? (
+        <View style={styles.notificationBanner}>
+          <Text style={styles.notificationText}>{liveNotification}</Text>
+        </View>
+      ) : null}
+
       {/* CARD */}
-      <LinearGradient
-        colors={["#8b5cf6", "#6366f1"]}
-        style={styles.card}
-      >
+      <LinearGradient colors={["#8b5cf6", "#6366f1"]} style={styles.card}>
         <Text style={styles.cardTitle}>This Month's Spending</Text>
         <Text style={styles.amount}>₹{total}</Text>
-        <Text style={styles.transactions}>
-          {expenses.length} transactions
-        </Text>
+        <Text style={styles.transactions}>{expenses.length} transactions</Text>
       </LinearGradient>
 
       {/* ACTION BUTTONS */}
@@ -107,14 +126,12 @@ useFocusEffect(
           color="#10b981"
           onPress={() => navigation.navigate("Budget")}
         />
-      <ActionButton
-  icon="analytics"
-  label="Insights"
-  color="#f59e0b"
-  onPress={() =>
-    navigation.navigate("Insights", { expenses })
-  }
-/>
+        <ActionButton
+          icon="analytics"
+          label="Insights"
+          color="#f59e0b"
+          onPress={() => navigation.navigate("Insights", { expenses })}
+        />
       </View>
 
       {/* 📊 PIE CHART */}
@@ -132,8 +149,6 @@ useFocusEffect(
         />
       )}
 
-     
-
       {/* TRANSACTIONS */}
       <View style={styles.row}>
         <Text style={styles.sectionTitle}>Recent Transactions</Text>
@@ -142,7 +157,7 @@ useFocusEffect(
 
       <FlatList
         data={expenses}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item, index) => item?._id || index.toString()}
         renderItem={({ item }) => (
           <View style={styles.item}>
             <View>
@@ -188,6 +203,21 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 22,
     fontWeight: "bold",
+  },
+
+  notificationBanner: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#1f2937",
+    borderColor: "#10b981",
+    borderWidth: 1,
+  },
+
+  notificationText: {
+    color: "#d1fae5",
+    fontSize: 14,
+    fontWeight: "600",
   },
 
   card: {
@@ -258,11 +288,13 @@ const styles = StyleSheet.create({
 
   itemTitle: {
     color: "#fff",
-    fontWeight: "bold",
+    fontWeight: "600",
   },
 
   itemDate: {
-    color: "#aaa",
+    color: "#777",
+    fontSize: 12,
+    marginTop: 2,
   },
 
   amountText: {

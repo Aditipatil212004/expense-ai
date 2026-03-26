@@ -22,7 +22,7 @@ exports.getExpenses = async (req, res) => {
   try {
     const expenses = await Expense.find({
       userId: req.user.id,
-    });
+    }).sort({ createdAt: -1 });
 
     res.json(expenses);
   } catch (err) {
