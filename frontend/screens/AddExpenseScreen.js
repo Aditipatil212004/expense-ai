@@ -20,21 +20,22 @@ export default function AddExpenseScreen({ navigation }) {
   const [category, setCategory] = useState("Food");
   const [method, setMethod] = useState("UPI");
 
-  const addExpense = async () => {
-    try {
-      await API.post("/expenses", {
-        amount: Number(amount),
-        category,
-        merchant,
-        method,
-      });
+ const addExpense = async () => {
+  try {
+    console.log("Sending:", { amount, category });
 
-      navigation.goBack();
-    } catch (err) {
-      console.log(err);
-      alert("Failed to add transaction");
-    }
-  };
+    const res = await API.post("/expenses", {
+      amount: Number(amount),
+      category,
+    });
+
+    console.log("SUCCESS:", res.data);
+
+    navigation.goBack();
+  } catch (err) {
+    console.log("ERROR:", err.response?.data || err.message);
+  }
+};
 
   return (
     <View style={styles.container}>

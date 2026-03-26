@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import DashboardScreen from "../screens/DashboardScreen";
 import AddExpenseScreen from "../screens/AddExpenseScreen";
 import BudgetScreen from "../screens/BudgetScreen";
+import InsightsScreen from "../screens/InsightsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -11,6 +12,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Dashboard" component={DashboardScreen} />
       <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
       <Stack.Screen name="Budget" component={BudgetScreen} />
+      <Stack.Screen name="Insights" component={InsightsScreen} />
     </Stack.Navigator>
   );
 }

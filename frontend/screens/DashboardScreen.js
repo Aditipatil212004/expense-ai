@@ -5,14 +5,17 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import API from "../services/api";
+import { PieChart } from "react-native-chart-kit";
 
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
 
+  // ✅ FETCH EXPENSES
   const getExpenses = async () => {
     try {
       const res = await API.get("/expenses");
@@ -23,11 +26,47 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
-  useEffect(() => {
-    getExpenses();
-  }, []);
+ useEffect(() => {
+  const unsubscribe = navigation.addListener("focus", () => {
+    getExpenses(); // reload when coming back
+  });
 
-  const total = expenses.reduce((sum, item) => sum + item.amount, 0);
+  return unsubscribe;
+}, [navigation]);
+
+  // ✅ SAFE TOTAL
+  const total = Array.isArray(expenses)
+    ? expenses.reduce((sum, item) => sum + item.amount, 0)
+    : 0;
+
+  // ✅ CATEGORY MAP
+  const categoryMap = {};
+  expenses.forEach((e) => {
+    categoryMap[e.category] =
+      (categoryMap[e.category] || 0) + e.amount;
+  });
+
+  // ✅ CHART DATA
+  const chartData = Object.keys(categoryMap).map((key) => ({
+    name: key,
+    amount: categoryMap[key],
+    color:
+      "#" +
+      Math.floor(Math.random() * 16777215).toString(16),
+    legendFontColor: "#fff",
+    legendFontSize: 12,
+  }));
+
+  // 🤖 AI INSIGHTS
+  const getInsights = () => {
+    if (!expenses.length) return "No data yet";
+
+    const topCategory = Object.keys(categoryMap).reduce((a, b) =>
+      categoryMap[a] > categoryMap[b] ? a : b
+    );
+
+    return `You are spending most on ${topCategory} 💸`;
+  };
 
   return (
     <View style={styles.container}>
@@ -62,14 +101,37 @@ export default function DashboardScreen({ navigation }) {
           onPress={() => navigation.navigate("AddExpense")}
         />
         <ActionButton
-  icon="wallet"
-  label="Budget"
-  color="#10b981"
-  onPress={() => navigation.navigate("Budget")}
+          icon="wallet"
+          label="Budget"
+          color="#10b981"
+          onPress={() => navigation.navigate("Budget")}
+        />
+      <ActionButton
+  icon="analytics"
+  label="Insights"
+  color="#f59e0b"
+  onPress={() =>
+    navigation.navigate("Insights", { expenses })
+  }
 />
-        
-        <ActionButton icon="analytics" label="Insights" color="#f59e0b" />
       </View>
+
+      {/* 📊 PIE CHART */}
+      {chartData.length > 0 && (
+        <PieChart
+          data={chartData}
+          width={Dimensions.get("window").width - 40}
+          height={220}
+          chartConfig={{
+            color: () => "#fff",
+          }}
+          accessor="amount"
+          backgroundColor="transparent"
+          paddingLeft="15"
+        />
+      )}
+
+     
 
       {/* TRANSACTIONS */}
       <View style={styles.row}>
