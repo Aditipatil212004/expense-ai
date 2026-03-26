@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,64 +14,97 @@ import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 
+const POLLING_INTERVAL_MS = 5000;
+
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
+  const [liveNotification, setLiveNotification] = useState("");
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [notificationSummary, setNotificationSummary] = useState({
+    totalCredited: 0,
+    totalDebited: 0,
+  });
+  const latestExpenseIdRef = useRef(null);
 
-  // ✅ FETCH EXPENSES
- const getExpenses = useCallback(async () => {
-  try {
-    const res = await API.get("/expenses");
-    console.log("FETCHED:", res.data);
-    setExpenses(Array.isArray(res.data) ? res.data : []);
-  } catch (err) {
-    console.log(err);
-  }
-}, []);
+  const getExpenses = useCallback(async (notifyOnNewTransaction = false) => {
+    try {
+      const res = await API.get("/expenses");
+      const fetchedExpenses = Array.isArray(res.data) ? res.data : [];
 
-useFocusEffect(
-  useCallback(() => {
-    console.log("Dashboard refreshed 🔄");
-    getExpenses();
-  }, [getExpenses])
-);
+      if (fetchedExpenses.length > 0) {
+        const newestExpense = fetchedExpenses[0];
+        const hasNewTransaction =
+          latestExpenseIdRef.current && newestExpense._id !== latestExpenseIdRef.current;
 
-  // ✅ SAFE TOTAL
+        if (notifyOnNewTransaction && hasNewTransaction) {
+          setLiveNotification(
+            `New ${newestExpense.category} transaction: ₹${newestExpense.amount}`
+          );
+          setTimeout(() => setLiveNotification(""), 3000);
+        }
+
+        latestExpenseIdRef.current = newestExpense._id;
+      }
+
+      setExpenses(fetchedExpenses);
+    } catch (err) {
+      console.log(err);
+    }
+  }, []);
+
+  const getNotificationSummary = useCallback(async () => {
+    try {
+      const res = await API.get("/expenses/notifications/summary");
+      setNotificationSummary({
+        totalCredited: res.data?.totalCredited || 0,
+        totalDebited: res.data?.totalDebited || 0,
+      });
+    } catch (err) {
+      console.log("Summary error", err?.response?.data || err.message);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      getExpenses(false);
+      getNotificationSummary();
+    }, [getExpenses, getNotificationSummary])
+  );
+
+  useEffect(() => {
+    if (!syncEnabled) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      getExpenses(true);
+      getNotificationSummary();
+    }, POLLING_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [getExpenses, getNotificationSummary, syncEnabled]);
+
   const total = Array.isArray(expenses)
     ? expenses.reduce((sum, item) => sum + item.amount, 0)
     : 0;
 
-  // ✅ CATEGORY MAP
   const categoryMap = {};
-  expenses.forEach((e) => {
-    categoryMap[e.category] =
-      (categoryMap[e.category] || 0) + e.amount;
-  });
+  expenses
+    .filter((e) => e.type !== "credit")
+    .forEach((e) => {
+      categoryMap[e.category] = (categoryMap[e.category] || 0) + e.amount;
+    });
 
-  // ✅ CHART DATA
   const chartData = Object.keys(categoryMap).map((key) => ({
     name: key,
     amount: categoryMap[key],
-    color:
-      "#" +
-      Math.floor(Math.random() * 16777215).toString(16),
+    color: "#" + Math.floor(Math.random() * 16777215).toString(16),
     legendFontColor: "#fff",
     legendFontSize: 12,
   }));
 
-  // 🤖 AI INSIGHTS
-  const getInsights = () => {
-    if (!expenses.length) return "No data yet";
-
-    const topCategory = Object.keys(categoryMap).reduce((a, b) =>
-      categoryMap[a] > categoryMap[b] ? a : b
-    );
-
-    return `You are spending most on ${topCategory} 💸`;
-  };
-
   return (
     <View style={styles.container}>
-      {/* HEADER */}
       <View style={styles.header}>
         <View>
           <Text style={styles.hello}>Hello,</Text>
@@ -81,19 +114,47 @@ useFocusEffect(
         <Ionicons name="log-out-outline" size={24} color="red" />
       </View>
 
-      {/* CARD */}
-      <LinearGradient
-        colors={["#8b5cf6", "#6366f1"]}
-        style={styles.card}
+      <TouchableOpacity
+        style={[styles.syncButton, syncEnabled && styles.syncButtonActive]}
+        onPress={() => setSyncEnabled((prev) => !prev)}
       >
+        <Ionicons
+          name={syncEnabled ? "notifications" : "notifications-off"}
+          size={16}
+          color="#fff"
+        />
+        <Text style={styles.syncButtonText}>
+          {syncEnabled ? "Notification Listener Enabled" : "Enable Notification Listener"}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.syncHint}>
+        Turn this on after your mobile app forwards bank/shop notification text to backend.
+      </Text>
+
+      {liveNotification ? (
+        <View style={styles.notificationBanner}>
+          <Text style={styles.notificationText}>{liveNotification}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Credited</Text>
+          <Text style={styles.creditText}>₹{notificationSummary.totalCredited}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Debited</Text>
+          <Text style={styles.debitText}>₹{notificationSummary.totalDebited}</Text>
+        </View>
+      </View>
+
+      <LinearGradient colors={["#8b5cf6", "#6366f1"]} style={styles.card}>
         <Text style={styles.cardTitle}>This Month's Spending</Text>
         <Text style={styles.amount}>₹{total}</Text>
-        <Text style={styles.transactions}>
-          {expenses.length} transactions
-        </Text>
+        <Text style={styles.transactions}>{expenses.length} transactions</Text>
       </LinearGradient>
 
-      {/* ACTION BUTTONS */}
       <View style={styles.actions}>
         <ActionButton
           icon="add"
@@ -107,17 +168,14 @@ useFocusEffect(
           color="#10b981"
           onPress={() => navigation.navigate("Budget")}
         />
-      <ActionButton
-  icon="analytics"
-  label="Insights"
-  color="#f59e0b"
-  onPress={() =>
-    navigation.navigate("Insights", { expenses })
-  }
-/>
+        <ActionButton
+          icon="analytics"
+          label="Insights"
+          color="#f59e0b"
+          onPress={() => navigation.navigate("Insights", { expenses })}
+        />
       </View>
 
-      {/* 📊 PIE CHART */}
       {chartData.length > 0 && (
         <PieChart
           data={chartData}
@@ -132,9 +190,6 @@ useFocusEffect(
         />
       )}
 
-     
-
-      {/* TRANSACTIONS */}
       <View style={styles.row}>
         <Text style={styles.sectionTitle}>Recent Transactions</Text>
         <Text style={styles.seeAll}>See All</Text>
@@ -142,15 +197,17 @@ useFocusEffect(
 
       <FlatList
         data={expenses}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item, index) => item?._id || index.toString()}
         renderItem={({ item }) => (
           <View style={styles.item}>
             <View>
               <Text style={styles.itemTitle}>{item.category}</Text>
-              <Text style={styles.itemDate}>Today</Text>
+              <Text style={styles.itemDate}>{item.type === "credit" ? "Credited" : "Debited"}</Text>
             </View>
 
-            <Text style={styles.amountText}>₹{item.amount}</Text>
+            <Text style={[styles.amountText, item.type === "credit" && styles.creditText]}>
+              ₹{item.amount}
+            </Text>
           </View>
         )}
       />
@@ -160,7 +217,7 @@ useFocusEffect(
 
 const ActionButton = ({ icon, label, color, onPress }) => (
   <TouchableOpacity style={styles.actionItem} onPress={onPress}>
-    <View style={[styles.iconBox, { backgroundColor: color }]}>
+    <View style={[styles.iconBox, { backgroundColor: color }]}> 
       <MaterialIcons name={icon} size={24} color="#fff" />
     </View>
     <Text style={styles.actionText}>{label}</Text>
@@ -173,80 +230,125 @@ const styles = StyleSheet.create({
     backgroundColor: "#0a0a12",
     padding: 20,
   },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 40,
   },
-
   hello: {
     color: "#aaa",
   },
-
   name: {
     color: "#fff",
     fontSize: 22,
     fontWeight: "bold",
   },
-
+  syncButton: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#374151",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  syncButtonActive: {
+    backgroundColor: "#2563eb",
+  },
+  syncButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  syncHint: {
+    color: "#9ca3af",
+    marginTop: 6,
+    fontSize: 12,
+  },
+  notificationBanner: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#1f2937",
+    borderColor: "#10b981",
+    borderWidth: 1,
+  },
+  notificationText: {
+    color: "#d1fae5",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: "#111827",
+    borderRadius: 12,
+    padding: 12,
+  },
+  summaryLabel: {
+    color: "#9ca3af",
+    fontSize: 12,
+  },
+  creditText: {
+    color: "#34d399",
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  debitText: {
+    color: "#f87171",
+    fontWeight: "700",
+    marginTop: 4,
+  },
   card: {
     borderRadius: 20,
     padding: 20,
     marginVertical: 20,
   },
-
   cardTitle: {
     color: "#ddd",
   },
-
   amount: {
     color: "#fff",
     fontSize: 32,
     fontWeight: "bold",
     marginVertical: 5,
   },
-
   transactions: {
     color: "#ddd",
   },
-
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginVertical: 20,
   },
-
   actionItem: {
     alignItems: "center",
   },
-
   iconBox: {
     padding: 15,
     borderRadius: 15,
   },
-
   actionText: {
     color: "#aaa",
     marginTop: 5,
   },
-
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 10,
   },
-
   sectionTitle: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
   },
-
   seeAll: {
     color: "#8b5cf6",
   },
-
   item: {
     backgroundColor: "#1a1a2e",
     padding: 15,
@@ -255,16 +357,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-
   itemTitle: {
     color: "#fff",
-    fontWeight: "bold",
+    fontWeight: "600",
   },
-
   itemDate: {
-    color: "#aaa",
+    color: "#777",
+    fontSize: 12,
+    marginTop: 2,
   },
-
   amountText: {
     color: "#f87171",
     fontWeight: "bold",
