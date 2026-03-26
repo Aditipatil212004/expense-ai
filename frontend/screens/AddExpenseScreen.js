@@ -24,14 +24,14 @@ export default function AddExpenseScreen({ navigation }) {
   try {
     console.log("Sending:", { amount, category });
 
-    const res = await API.post("/expenses", {
+    await API.post("/expenses", {
       amount: Number(amount),
       category,
     });
 
-    console.log("SUCCESS:", res.data);
+    console.log("SUCCESS: Add expense");
 
-    navigation.goBack();
+    navigation.navigate("Dashboard"); // ✅ FIX
   } catch (err) {
     console.log("ERROR:", err.response?.data || err.message);
   }

@@ -1,13 +1,14 @@
 const express = require("express");
 const router = express.Router();
 
-// Example route
-router.get("/", (req, res) => {
-  res.send("Get all expenses");
-});
+const auth = require("../middleware/authMiddleware"); // ✅ important
+const {
+  addExpense,
+  getExpenses,
+} = require("../controllers/expenseController");
 
-router.post("/", (req, res) => {
-  res.send("Add expense");
-});
+// ✅ REAL ROUTES
+router.post("/", auth, addExpense);
+router.get("/", auth, getExpenses);
 
-module.exports = router; // ✅ MUST
+module.exports = router;

@@ -11,28 +11,29 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import API from "../services/api";
 import { PieChart } from "react-native-chart-kit";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
 
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
 
   // ✅ FETCH EXPENSES
-  const getExpenses = async () => {
-    try {
-      const res = await API.get("/expenses");
-      setExpenses(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.log(err);
-      setExpenses([]);
-    }
-  };
+ const getExpenses = useCallback(async () => {
+  try {
+    const res = await API.get("/expenses");
+    console.log("FETCHED:", res.data);
+    setExpenses(Array.isArray(res.data) ? res.data : []);
+  } catch (err) {
+    console.log(err);
+  }
+}, []);
 
- useEffect(() => {
-  const unsubscribe = navigation.addListener("focus", () => {
-    getExpenses(); // reload when coming back
-  });
-
-  return unsubscribe;
-}, [navigation]);
+useFocusEffect(
+  useCallback(() => {
+    console.log("Dashboard refreshed 🔄");
+    getExpenses();
+  }, [getExpenses])
+);
 
   // ✅ SAFE TOTAL
   const total = Array.isArray(expenses)
