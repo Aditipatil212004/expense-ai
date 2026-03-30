@@ -7,28 +7,32 @@ import API from "../services/api";
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const login = async () => {
+ const login = async () => {
   try {
+    console.log("Calling API...");
+
     const res = await API.post("/auth/login", {
       email,
       password,
     });
 
+    console.log("RESPONSE:", res.data);
+
     const token = res.data.token;
 
-    // ✅ Store token
     await AsyncStorage.setItem("token", token);
-// just reload navigation flow
-navigation.reset({
-  index: 0,
-  routes: [{ name: "Login" }],
-});
-    
+    // 🔥 ADD THIS
+await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
+
+setIsLoggedIn(true);
+// force app reload logic
+navigation.replace("Login");
+  
   } catch (err) {
+    console.log("LOGIN ERROR:", err.response?.data || err.message);
     alert("Login failed");
   }
 };
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome Back!</Text>

@@ -22,6 +22,10 @@ export default function SignupScreen({ navigation }) {
     const token = res.data.token;
 
     await AsyncStorage.setItem("token", token);
+    // 🔥 ADD THIS
+await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
+
+setIsLoggedIn(true);
 
     navigation.replace("Login"); // safer for now
   } catch (err) {
@@ -37,7 +41,7 @@ export default function SignupScreen({ navigation }) {
 
       <InputField
         icon="person-outline"
-        placeholder="Full Name"
+        placeholder="Name"
         value={name}
         onChangeText={setName}
       />

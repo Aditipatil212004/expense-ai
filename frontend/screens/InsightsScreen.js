@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { PieChart } from "react-native-chart-kit";
 
 export default function InsightsScreen({ route }) {
-  const { expenses } = route.params;
+  const expenses = route?.params?.expenses || [];
 
   const map = {};
   expenses.forEach((e) => {
@@ -13,9 +13,7 @@ export default function InsightsScreen({ route }) {
   const chartData = Object.keys(map).map((key) => ({
     name: key,
     amount: map[key],
-    color:
-      "#" +
-      Math.floor(Math.random() * 16777215).toString(16),
+    color: "#" + Math.floor(Math.random() * 16777215).toString(16),
     legendFontColor: "#fff",
     legendFontSize: 12,
   }));
