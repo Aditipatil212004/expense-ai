@@ -1,24 +1,45 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
+
 import {
+  View,
+  Text,
   StyleSheet,
   Dimensions,
-  
   FlatList,
+  TouchableOpacity,
 } from "react-native";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
 import API from "../services/api";
-import { View, Text, TouchableOpacity } from "react-native";
-import { useLayoutEffect } from "react";
 
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
   const [liveNotification, setLiveNotification] = useState("");
   const [syncEnabled, setSyncEnabled] = useState(false);
+  const [user, setUser] = useState(null); // ✅ FIX
 
   const latestExpenseIdRef = useRef(null);
+
+  // 🔁 LOAD USER (FIX)
+  useEffect(() => {
+    const loadUser = async () => {
+      const data = await AsyncStorage.getItem("user");
+      if (data) {
+        setUser(JSON.parse(data));
+      }
+    };
+    loadUser();
+  }, []);
 
   // 🔁 FETCH EXPENSES
   const getExpenses = useCallback(async (notify = false) => {
@@ -55,15 +76,18 @@ export default function DashboardScreen({ navigation }) {
       getExpenses(false);
     }, [getExpenses])
   );
-useLayoutEffect(() => {
-  navigation.setOptions({
-    headerLeft: () => (
-      <TouchableOpacity onPress={() => navigation.openDrawer()}>
-        <Ionicons name="menu" size={24} color="#fff" />
-      </TouchableOpacity>
-    ),
-  });
-}, [navigation]);
+
+  // 🔁 DRAWER BUTTON
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity onPress={() => navigation.openDrawer()}>
+          <Ionicons name="menu" size={24} color="#fff" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
+
   // 🔁 LIVE SYNC
   useEffect(() => {
     if (!syncEnabled) return;
@@ -91,7 +115,9 @@ useLayoutEffect(() => {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Good morning,</Text>
-          <Text style={styles.username}>Ketan</Text>
+          <Text style={styles.username}>
+            {user?.name || "User"} {/* ✅ FIX */}
+          </Text>
         </View>
         <Ionicons name="notifications-outline" size={24} color="#00ffcc" />
       </View>

@@ -13,9 +13,10 @@ export default function SignupScreen({ navigation }) {
     console.log("Signup clicked");
 
     const res = await API.post("/auth/signup", {
-      email,
-      password,
-    });
+  name, // ✅ ADD THIS
+  email,
+  password,
+});
 
     console.log(res.data);
 
@@ -25,9 +26,7 @@ export default function SignupScreen({ navigation }) {
     // 🔥 ADD THIS
 await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
 
-setIsLoggedIn(true);
-
-    navigation.replace("Login"); // safer for now
+navigation.replace("Login");
   } catch (err) {
     console.log(err.response?.data || err.message);
     alert("Signup failed");

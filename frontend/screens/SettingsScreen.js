@@ -1,8 +1,7 @@
 import { View, Text, StyleSheet, Switch } from "react-native";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 export default function SettingsScreen() {
   const [darkMode, setDarkMode] = useState(true);

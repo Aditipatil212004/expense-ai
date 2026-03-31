@@ -24,7 +24,7 @@ export default function LoginScreen({ navigation }) {
     // 🔥 ADD THIS
 await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
 
-setIsLoggedIn(true);
+
 // force app reload logic
 navigation.replace("Login");
   

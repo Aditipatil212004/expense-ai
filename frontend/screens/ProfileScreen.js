@@ -4,6 +4,19 @@ import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function ProfileScreen() {
+  const [user, setUser] = useState(null); // ✅ INSIDE
+
+  useEffect(() => {
+    const getUser = async () => {
+      const data = await AsyncStorage.getItem("user");
+      if (data) {
+        setUser(JSON.parse(data));
+      }
+    };
+
+    getUser();
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Profile Header */}
@@ -12,13 +25,14 @@ export default function ProfileScreen() {
           source={{ uri: "https://i.pravatar.cc/150" }}
           style={styles.avatar}
         />
-       <Text style={styles.name}>
-  {user?.name || "User"}
-</Text>
 
-<Text style={styles.email}>
-  {user?.email || "No email"}
-</Text>
+        <Text style={styles.name}>
+          {user?.name || "User"}
+        </Text>
+
+        <Text style={styles.email}>
+          {user?.email || "No email"}
+        </Text>
       </View>
 
       {/* Options */}
@@ -37,17 +51,6 @@ const ProfileItem = ({ icon, text }) => (
     <Text style={styles.itemText}>{text}</Text>
   </TouchableOpacity>
 );
-const [user, setUser] = useState(null);
-useEffect(() => {
-  const getUser = async () => {
-    const data = await AsyncStorage.getItem("user");
-    if (data) {
-      setUser(JSON.parse(data));
-    }
-  };
-
-  getUser();
-}, []);
 
 const styles = StyleSheet.create({
   container: {
