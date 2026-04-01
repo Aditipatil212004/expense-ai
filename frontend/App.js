@@ -13,9 +13,13 @@ export default function App() {
     const token = await AsyncStorage.getItem("token");
     setIsLoggedIn(!!token);
   };
-  checkLogin();
-}, []);
 
+  checkLogin();
+
+  const interval = setInterval(checkLogin, 1000); // 🔥 auto update
+
+  return () => clearInterval(interval);
+}, []);
   if (isLoggedIn === null) return null;
 
   return (

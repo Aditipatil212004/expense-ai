@@ -13,6 +13,7 @@ import {
   Dimensions,
   FlatList,
   TouchableOpacity,
+  PermissionsAndroid,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,16 +22,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
 import API from "../services/api";
+import SmsListener from "react-native-android-sms-listener";
 
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
   const [liveNotification, setLiveNotification] = useState("");
   const [syncEnabled, setSyncEnabled] = useState(false);
-  const [user, setUser] = useState(null); // ✅ FIX
+  const [user, setUser] = useState(null);
 
   const latestExpenseIdRef = useRef(null);
 
-  // 🔁 LOAD USER (FIX)
+  // 🔁 LOAD USER
   useEffect(() => {
     const loadUser = async () => {
       const data = await AsyncStorage.getItem("user");
@@ -39,6 +41,72 @@ export default function DashboardScreen({ navigation }) {
       }
     };
     loadUser();
+  }, []);
+
+  // 🔐 REQUEST SMS PERMISSION
+  useEffect(() => {
+    PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.READ_SMS
+    );
+  }, []);
+
+  // 🔥 SMS PARSER
+  const parseSMS = (text) => {
+    text = text.toLowerCase();
+
+    if (text.includes("otp") || text.includes("password")) return null;
+
+    const amountMatch = text.match(/(rs\.?|inr)\s?(\d+)/i);
+    const amount = amountMatch ? parseInt(amountMatch[2]) : 0;
+
+    if (!amount) return null;
+
+    let type = null;
+    if (text.includes("debited")) type = "debit";
+    if (text.includes("credited")) type = "credit";
+
+    if (!type) return null;
+
+    let category = "Other";
+
+    if (text.includes("swiggy") || text.includes("zomato"))
+      category = "Food";
+    else if (text.includes("amazon") || text.includes("flipkart"))
+      category = "Shopping";
+    else if (text.includes("uber") || text.includes("ola"))
+      category = "Travel";
+    else if (text.includes("netflix") || text.includes("spotify"))
+      category = "Entertainment";
+
+    return { amount, type, category };
+  };
+
+  // 🔥 SMS LISTENER
+  useEffect(() => {
+    const subscription = SmsListener.addListener(async (message) => {
+      console.log("SMS RECEIVED:", message.body);
+
+      const parsed = parseSMS(message.body);
+
+      if (!parsed) return;
+
+      try {
+        await API.post("/expenses", {
+          amount: parsed.amount,
+          type: parsed.type,
+          category: parsed.category,
+          description: message.body,
+        });
+
+        console.log("Saved:", parsed);
+
+        getExpenses(true);
+      } catch (err) {
+        console.log("API ERROR:", err);
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   // 🔁 FETCH EXPENSES
@@ -99,15 +167,20 @@ export default function DashboardScreen({ navigation }) {
     return () => clearInterval(interval);
   }, [syncEnabled, getExpenses]);
 
-  // 💰 TOTAL
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+  // 💰 TOTAL (FIXED)
+  const total = expenses.reduce((sum, e) => {
+    if (e.type === "credit") return sum + e.amount;
+    return sum - e.amount;
+  }, 0);
 
-  // 📊 CATEGORY MAP
+  // 📊 CATEGORY MAP (ONLY DEBIT)
   const categoryMap = {};
-  expenses.forEach((e) => {
-    categoryMap[e.category] =
-      (categoryMap[e.category] || 0) + e.amount;
-  });
+  expenses
+    .filter((e) => e.type === "debit")
+    .forEach((e) => {
+      categoryMap[e.category] =
+        (categoryMap[e.category] || 0) + e.amount;
+    });
 
   return (
     <View style={styles.container}>
@@ -116,7 +189,7 @@ export default function DashboardScreen({ navigation }) {
         <View>
           <Text style={styles.greeting}>Good morning,</Text>
           <Text style={styles.username}>
-            {user?.name || "User"} {/* ✅ FIX */}
+            {user?.name || "User"}
           </Text>
         </View>
         <Ionicons name="notifications-outline" size={24} color="#00ffcc" />

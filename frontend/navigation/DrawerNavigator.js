@@ -4,6 +4,7 @@ import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import LogoutScreen from "../screens/LogoutScreen";
 
+
 const Drawer = createDrawerNavigator();
 
 export default function DrawerNavigator() {

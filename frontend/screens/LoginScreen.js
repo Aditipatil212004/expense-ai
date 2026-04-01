@@ -26,8 +26,7 @@ await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
 
 
 // force app reload logic
-navigation.replace("Login");
-  
+
   } catch (err) {
     console.log("LOGIN ERROR:", err.response?.data || err.message);
     alert("Login failed");

@@ -8,31 +8,27 @@ export default function SignupScreen({ navigation }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const signup = async () => {
+ const signup = async () => {
   try {
-    console.log("Signup clicked");
-
     const res = await API.post("/auth/signup", {
-  name, // ✅ ADD THIS
-  email,
-  password,
-});
-
-    console.log(res.data);
+      name,
+      email,
+      password,
+    });
 
     const token = res.data.token;
 
     await AsyncStorage.setItem("token", token);
-    // 🔥 ADD THIS
-await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
+    await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
 
-navigation.replace("Login");
+    // ❌ DO NOT NAVIGATE TO LOGIN
+    // App.js will automatically go to Dashboard
+navigation.replace("LoginScreen");
   } catch (err) {
     console.log(err.response?.data || err.message);
     alert("Signup failed");
   }
 };
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Create Account</Text>
