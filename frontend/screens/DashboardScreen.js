@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useEffect,
@@ -13,7 +14,6 @@ import {
   Dimensions,
   FlatList,
   TouchableOpacity,
-  PermissionsAndroid,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,8 +21,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
+import { NativeEventEmitter } from "react-native";
 import API from "../services/api";
-import SmsListener from "react-native-android-sms-listener";
 
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
@@ -36,75 +36,70 @@ export default function DashboardScreen({ navigation }) {
   useEffect(() => {
     const loadUser = async () => {
       const data = await AsyncStorage.getItem("user");
-      if (data) {
-        setUser(JSON.parse(data));
-      }
+      if (data) setUser(JSON.parse(data));
     };
     loadUser();
   }, []);
 
-  // 🔐 REQUEST SMS PERMISSION
-  useEffect(() => {
-    PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.READ_SMS
-    );
-  }, []);
+  // 🔥 NOTIFICATION PARSER
+  const parseNotification = (text) => {
+    const lower = text.toLowerCase();
 
-  // 🔥 SMS PARSER
-  const parseSMS = (text) => {
-    text = text.toLowerCase();
+    if (lower.includes("otp") || lower.includes("password")) return null;
 
-    if (text.includes("otp") || text.includes("password")) return null;
-
-    const amountMatch = text.match(/(rs\.?|inr)\s?(\d+)/i);
-    const amount = amountMatch ? parseInt(amountMatch[2]) : 0;
+    const match = text.match(/(₹|rs\.?|inr)\s?(\d+(,\d+)*)/i);
+    const amount = match ? parseInt(match[2].replace(/,/g, "")) : 0;
 
     if (!amount) return null;
 
     let type = null;
-    if (text.includes("debited")) type = "debit";
-    if (text.includes("credited")) type = "credit";
+    if (lower.includes("debited") || lower.includes("paid")) type = "debit";
+    if (lower.includes("credited") || lower.includes("received")) type = "credit";
 
     if (!type) return null;
 
     let category = "Other";
 
-    if (text.includes("swiggy") || text.includes("zomato"))
+    if (lower.includes("swiggy") || lower.includes("zomato"))
       category = "Food";
-    else if (text.includes("amazon") || text.includes("flipkart"))
+    else if (lower.includes("amazon") || lower.includes("flipkart"))
       category = "Shopping";
-    else if (text.includes("uber") || text.includes("ola"))
+    else if (lower.includes("uber") || lower.includes("ola"))
       category = "Travel";
-    else if (text.includes("netflix") || text.includes("spotify"))
+    else if (lower.includes("netflix") || lower.includes("spotify"))
       category = "Entertainment";
+    else if (lower.includes("bill") || lower.includes("electricity"))
+      category = "Bills";
 
     return { amount, type, category };
   };
 
-  // 🔥 SMS LISTENER
+  // 🔥 NOTIFICATION LISTENER
   useEffect(() => {
-    const subscription = SmsListener.addListener(async (message) => {
-      console.log("SMS RECEIVED:", message.body);
+    const emitter = new NativeEventEmitter();
 
-      const parsed = parseSMS(message.body);
+    const subscription = emitter.addListener(
+      "NotificationReceived",
+      async (text) => {
+        console.log("Notification:", text);
 
-      if (!parsed) return;
+        const parsed = parseNotification(text);
+        if (!parsed) return;
 
-      try {
-        await API.post("/expenses", {
-          amount: parsed.amount,
-          type: parsed.type,
-          category: parsed.category,
-          description: message.body,
-        });
+        try {
+          await API.post("/expenses", {
+            amount: parsed.amount,
+            type: parsed.type,
+            category: parsed.category,
+            description: text,
+          });
 
-        console.log("Saved:", parsed);
-
-        getExpenses(true);
-      } catch (err) {
-        console.log("API ERROR:", err);
+          getExpenses(true);
+        } catch (err) {
+          console.log("API ERROR:", err);
+        }
       }
-    });
+    );
 
     return () => subscription.remove();
   }, []);
@@ -138,14 +133,14 @@ export default function DashboardScreen({ navigation }) {
     }
   }, []);
 
-  // 🔁 REFRESH ON SCREEN FOCUS
+  // 🔁 REFRESH
   useFocusEffect(
     useCallback(() => {
       getExpenses(false);
     }, [getExpenses])
   );
 
-  // 🔁 DRAWER BUTTON
+  // 🔁 DRAWER
   useLayoutEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
@@ -156,24 +151,13 @@ export default function DashboardScreen({ navigation }) {
     });
   }, [navigation]);
 
-  // 🔁 LIVE SYNC
-  useEffect(() => {
-    if (!syncEnabled) return;
-
-    const interval = setInterval(() => {
-      getExpenses(true);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [syncEnabled, getExpenses]);
-
-  // 💰 TOTAL (FIXED)
+  // 💰 TOTAL
   const total = expenses.reduce((sum, e) => {
     if (e.type === "credit") return sum + e.amount;
     return sum - e.amount;
   }, 0);
 
-  // 📊 CATEGORY MAP (ONLY DEBIT)
+  // 📊 CATEGORY MAP
   const categoryMap = {};
   expenses
     .filter((e) => e.type === "debit")
@@ -184,7 +168,6 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Good morning,</Text>
@@ -195,19 +178,17 @@ export default function DashboardScreen({ navigation }) {
         <Ionicons name="notifications-outline" size={24} color="#00ffcc" />
       </View>
 
-      {/* TOTAL CARD */}
       <LinearGradient
         colors={["#0f3d2e", "#06281f"]}
         style={styles.totalCard}
       >
-        <Text style={styles.totalTitle}>Mar Total Spend</Text>
+        <Text style={styles.totalTitle}>Total Balance</Text>
         <Text style={styles.totalAmount}>₹{total}</Text>
         <Text style={styles.totalSub}>
           {Object.keys(categoryMap).length} categories
         </Text>
       </LinearGradient>
 
-      {/* LIVE NOTIFICATION */}
       {liveNotification ? (
         <View style={styles.notificationBanner}>
           <Text style={styles.notificationText}>
@@ -216,7 +197,6 @@ export default function DashboardScreen({ navigation }) {
         </View>
       ) : null}
 
-      {/* CATEGORY BREAKDOWN */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Category Breakdown</Text>
 
@@ -259,16 +239,6 @@ export default function DashboardScreen({ navigation }) {
         />
       </View>
 
-      {/* MONTHLY TREND */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Monthly Trend</Text>
-        <View style={styles.trendBox}>
-          <View style={styles.trendBar} />
-          <Text style={styles.monthText}>Mar</Text>
-        </View>
-      </View>
-
-      {/* RECENT TRANSACTIONS */}
       <FlatList
         data={expenses.slice(0, 5)}
         keyExtractor={(item, index) =>
@@ -288,7 +258,6 @@ export default function DashboardScreen({ navigation }) {
     </View>
   );
 }
-
 // 🎨 STYLES
 const styles = StyleSheet.create({
   container: {
