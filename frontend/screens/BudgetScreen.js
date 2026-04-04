@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,82 +10,124 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import API from "../services/api";
 
 export default function BudgetScreen() {
   const [budgets, setBudgets] = useState([]);
-const [expenses, setExpenses] = useState([]);
-
- 
+  const [expenses, setExpenses] = useState([]);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [newLimit, setNewLimit] = useState("");
 
+  useFocusEffect(
+    useCallback(() => {
+      getExpenses();
+      getBudgets();
+    }, [])
+  );
+
   const getExpenses = async () => {
     try {
       const res = await API.get("/expenses");
-      setExpenses(Array.isArray(res.data) ? res.data : []);
+      setExpenses(res.data || []);
     } catch (err) {
       console.log(err);
-      setExpenses([]);
     }
   };
 
-  useEffect(() => {
-    getExpenses();
-    getBudgets();
-  }, []);
+  const getBudgets = async () => {
+    try {
+      const res = await API.get("/budgets");
+      setBudgets(res.data || []);
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
   const getSpent = (category) => {
     return expenses
       .filter((e) => e.category === category)
       .reduce((sum, e) => sum + e.amount, 0);
   };
- 
 
-  const totalSpent = Array.isArray(expenses)
-    ? expenses.reduce((sum, e) => sum + e.amount, 0)
-    : 0;
-
+  const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalBudget = budgets.reduce((sum, b) => sum + b.limit, 0);
 
-  // 📥 GET budgets from backend
-const getBudgets = async () => {
-  try {
-    const res = await API.get("/budgets");
-    setBudgets(res.data);
-  } catch (err) {
-    console.log(err);
-  }
-};
+  const addBudget = async () => {
+    if (!newCategory || !newLimit) return;
 
-// ➕ ADD budget
-const addBudget = async () => {
-  try {
-    const res = await API.post("/budgets", {
-      category: newCategory,
-      limit: Number(newLimit),
-    });
+    try {
+      const res = await API.post("/budgets", {
+        category: newCategory,
+        limit: Number(newLimit),
+      });
 
-    setBudgets([...budgets, res.data]); // update UI
-    setModalVisible(false);
-    setNewCategory("");
-    setNewLimit("");
-  } catch (err) {
-    console.log(err);
-  }
-};
+      setBudgets([...budgets, res.data]);
+      setModalVisible(false);
+      setNewCategory("");
+      setNewLimit("");
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
-// ❌ DELETE budget
-const deleteBudget = async (id) => {
-  try {
-    await API.delete(`/budgets/${id}`);
-    setBudgets(budgets.filter((b) => b._id !== id));
-  } catch (err) {
-    console.log(err);
-  }
-};
+  const deleteBudget = async (id) => {
+    try {
+      await API.delete(`/budgets/${id}`);
+      setBudgets(budgets.filter((b) => b._id !== id));
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const renderItem = ({ item }) => {
+    const spent = getSpent(item.category);
+    const percent = item.limit ? (spent / item.limit) * 100 : 0;
+    const exceeded = spent > item.limit;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.row}>
+          <Text style={styles.category}>{item.category}</Text>
+
+          <TouchableOpacity onPress={() => deleteBudget(item._id)}>
+            <Ionicons name="trash-outline" size={20} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.amount}>
+          ₹{spent} / ₹{item.limit}
+        </Text>
+
+        <View style={styles.progressBg}>
+          <View
+            style={[
+              styles.progress,
+              {
+                width: `${Math.min(percent, 100)}%`,
+                backgroundColor: exceeded ? "#ef4444" : "#22c55e",
+              },
+            ]}
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.percent,
+            { color: exceeded ? "#ef4444" : "#22c55e" },
+          ]}
+        >
+          {Math.floor(percent)}%
+        </Text>
+
+        {exceeded && (
+          <Text style={styles.warning}>⚠ Budget exceeded</Text>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -102,72 +144,16 @@ const deleteBudget = async (id) => {
           style={styles.addBtn}
           onPress={() => setModalVisible(true)}
         >
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name="add" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
       {/* LIST */}
       <FlatList
         data={budgets}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => {
-          const spent = getSpent(item.category);
-          const percent = item.limit
-            ? (spent / item.limit) * 100
-            : 0;
-
-          const exceeded = spent > item.limit;
-
-          return (
-            <View style={styles.card}>
-              <View style={styles.row}>
-                <View style={styles.row}>
-                  <View style={styles.dot} />
-                  <Text style={styles.category}>{item.category}</Text>
-                </View>
-
-                <TouchableOpacity onPress={() => deleteBudget(item._id)}>
-  <Ionicons name="trash-outline" size={20} color="red" />
-</TouchableOpacity>
-              </View>
-
-              <Text style={styles.amount}>
-                ₹{spent} / ₹{item.limit}
-              </Text>
-
-              {/* PROGRESS */}
-              <View style={styles.progressBg}>
-                <View
-                  style={[
-                    styles.progress,
-                    {
-                      width: `${Math.min(percent, 100)}%`,
-                      backgroundColor: exceeded
-                        ? "#ef4444"
-                        : "#10b981",
-                    },
-                  ]}
-                />
-              </View>
-
-              <Text
-                style={[
-                  styles.percent,
-                  { color: exceeded ? "#ef4444" : "#10b981" },
-                ]}
-              >
-                {Math.floor(percent)}%
-              </Text>
-
-              {/* 🚨 WARNING */}
-              {exceeded && (
-                <Text style={styles.warning}>
-                  ⚠ Budget exceeded!
-                </Text>
-              )}
-            </View>
-          );
-        }}
+        keyExtractor={(item) => item._id}
+        renderItem={renderItem}
+        contentContainerStyle={{ paddingBottom: 100 }}
       />
 
       {/* SUMMARY */}
@@ -175,15 +161,13 @@ const deleteBudget = async (id) => {
         colors={["#8b5cf6", "#6366f1"]}
         style={styles.summary}
       >
-        <Text style={styles.summaryTitle}>Total Budget Overview</Text>
+        <Text style={styles.summaryTitle}>Overview</Text>
 
         <View style={styles.summaryRow}>
           <View>
             <Text style={styles.label}>Spent</Text>
             <Text style={styles.spent}>₹{totalSpent}</Text>
           </View>
-
-          <View style={styles.divider} />
 
           <View>
             <Text style={styles.label}>Remaining</Text>
@@ -194,8 +178,8 @@ const deleteBudget = async (id) => {
         </View>
       </LinearGradient>
 
-      {/* 🔥 MODAL */}
-      <Modal visible={modalVisible} transparent animationType="slide">
+      {/* MODAL */}
+      <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Add Budget</Text>
@@ -222,14 +206,12 @@ const deleteBudget = async (id) => {
                 colors={["#8b5cf6", "#6366f1"]}
                 style={styles.button}
               >
-                <Text style={styles.buttonText}>Add</Text>
+                <Text style={styles.buttonText}>Add Budget</Text>
               </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={{ color: "#aaa", marginTop: 10 }}>
-                Cancel
-              </Text>
+              <Text style={styles.cancel}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -237,6 +219,7 @@ const deleteBudget = async (id) => {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -247,30 +230,37 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 40,
+    marginBottom: 20,
   },
 
   title: {
     color: "#fff",
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
   },
 
   subtitle: {
     color: "#aaa",
+    marginTop: 5,
   },
 
   addBtn: {
     backgroundColor: "#8b5cf6",
-    padding: 12,
-    borderRadius: 30,
+    padding: 14,
+    borderRadius: 50,
+    elevation: 5,
   },
 
   card: {
-    backgroundColor: "#1a1a2e",
-    padding: 15,
-    borderRadius: 15,
-    marginTop: 15,
+    backgroundColor: "#121826",
+    padding: 18,
+    borderRadius: 18,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
 
   row: {
@@ -281,59 +271,62 @@ const styles = StyleSheet.create({
 
   category: {
     color: "#fff",
-    marginLeft: 10,
-    fontWeight: "bold",
-  },
-
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#f87171",
+    fontSize: 16,
+    fontWeight: "600",
   },
 
   amount: {
     color: "#aaa",
     marginVertical: 10,
+    fontSize: 13,
   },
 
   progressBg: {
-    height: 8,
-    backgroundColor: "#111",
+    height: 10,
+    backgroundColor: "#1f2937",
     borderRadius: 10,
+    overflow: "hidden",
   },
 
   progress: {
-    height: 8,
-    backgroundColor: "#10b981",
+    height: 10,
     borderRadius: 10,
   },
 
   percent: {
-    color: "#10b981",
     textAlign: "right",
+    marginTop: 6,
+    fontWeight: "600",
+  },
+
+  warning: {
+    color: "#ef4444",
     marginTop: 5,
+    fontSize: 12,
   },
 
   summary: {
-    marginTop: 20,
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
     padding: 20,
     borderRadius: 20,
   },
 
   summaryTitle: {
-    color: "#ddd",
+    color: "#eee",
     marginBottom: 10,
   },
 
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
   },
 
   label: {
     color: "#ddd",
+    fontSize: 12,
   },
 
   spent: {
@@ -343,57 +336,52 @@ const styles = StyleSheet.create({
   },
 
   remaining: {
-    color: "#10b981",
+    color: "#22c55e",
     fontSize: 20,
     fontWeight: "bold",
   },
 
-  divider: {
-    width: 1,
-    height: 30,
-    backgroundColor: "#ccc",
-  },
   modalContainer: {
-  flex: 1,
-  justifyContent: "center",
-  backgroundColor: "rgba(0,0,0,0.7)",
-},
+    flex: 1,
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
 
-modal: {
-  backgroundColor: "#1a1a2e",
-  margin: 20,
-  padding: 20,
-  borderRadius: 20,
-},
+  modal: {
+    backgroundColor: "#121826",
+    margin: 20,
+    padding: 20,
+    borderRadius: 20,
+  },
 
-modalTitle: {
-  color: "#fff",
-  fontSize: 18,
-  marginBottom: 15,
-},
+  modalTitle: {
+    color: "#fff",
+    fontSize: 18,
+    marginBottom: 15,
+  },
 
-input: {
-  backgroundColor: "#111827",
-  color: "#fff",
-  padding: 12,
-  borderRadius: 10,
-  marginBottom: 10,
-},
+  input: {
+    backgroundColor: "#1f2937",
+    color: "#fff",
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
 
-button: {
-  padding: 12,
-  borderRadius: 10,
-  alignItems: "center",
-},
+  button: {
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
 
-buttonText: {
-  color: "#fff",
-  fontWeight: "bold",
-},
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 
-warning: {
-  color: "#ef4444",
-  marginTop: 5,
-  fontSize: 12,
-},
+  cancel: {
+    color: "#aaa",
+    marginTop: 12,
+    textAlign: "center",
+  },
 });

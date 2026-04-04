@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,27 +20,47 @@ export default function AddExpenseScreen({ navigation }) {
   const [merchant, setMerchant] = useState("");
   const [category, setCategory] = useState("Food");
   const [method, setMethod] = useState("UPI");
+  const [loading, setLoading] = useState(false);
 
- const addExpense = async () => {
-  try {
-    console.log("Sending:", { amount, category });
+  const addExpense = async () => {
+    if (!amount || isNaN(amount)) {
+      return Alert.alert("Invalid Amount", "Enter valid amount");
+    }
 
-    await API.post("/expenses", {
-      amount: Number(amount),
-      category,
-    });
+    if (!merchant.trim()) {
+      return Alert.alert("Missing Merchant", "Enter merchant name");
+    }
 
-    console.log("SUCCESS: Add expense");
+    try {
+      setLoading(true);
 
-    navigation.navigate("Dashboard"); // ✅ FIX
-  } catch (err) {
-    console.log("ERROR:", err.response?.data || err.message);
-  }
-};
+      await API.post("/expenses", {
+        amount: Number(amount),
+        merchant,
+        category,
+        method,
+        type: "debit", // 🔥 IMPORTANT (fix for insights)
+        date: new Date(),
+      });
+
+      setAmount("");
+      setMerchant("");
+      setCategory("Food");
+      setMethod("UPI");
+
+      navigation.navigate("Dashboard");
+    } catch (err) {
+      console.log(err);
+      Alert.alert("Error", "Failed to add expense");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.title}>Add Transaction</Text>
@@ -82,10 +103,9 @@ export default function AddExpenseScreen({ navigation }) {
               onPress={() => setCategory(item)}
             >
               <Text
-                style={[
-                  styles.chipText,
-                  category === item && styles.activeText,
-                ]}
+                style={
+                  category === item ? styles.activeText : styles.chipText
+                }
               >
                 {item}
               </Text>
@@ -93,7 +113,7 @@ export default function AddExpenseScreen({ navigation }) {
           ))}
         </View>
 
-        {/* PAYMENT METHOD */}
+        {/* METHOD */}
         <Text style={styles.label}>Payment Method</Text>
         <View style={styles.rowWrap}>
           {methods.map((item) => (
@@ -106,10 +126,7 @@ export default function AddExpenseScreen({ navigation }) {
               onPress={() => setMethod(item)}
             >
               <Text
-                style={[
-                  styles.chipText,
-                  method === item && styles.activeText,
-                ]}
+                style={method === item ? styles.activeText : styles.chipText}
               >
                 {item}
               </Text>
@@ -118,23 +135,27 @@ export default function AddExpenseScreen({ navigation }) {
         </View>
 
         {/* BUTTON */}
-        <TouchableOpacity onPress={addExpense}>
+        <TouchableOpacity onPress={addExpense} disabled={loading}>
           <LinearGradient
             colors={["#8b5cf6", "#6366f1"]}
-            style={styles.button}
+            style={[styles.button, loading && { opacity: 0.6 }]}
           >
-            <Text style={styles.buttonText}>Add Transaction</Text>
+            <Text style={styles.buttonText}>
+              {loading ? "Adding..." : "Add Transaction"}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
+
       </ScrollView>
     </View>
   );
 }
 
+/* ✅ THIS WAS MISSING */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0a0a12",
+    backgroundColor: "#05060A",
     padding: 20,
   },
 
@@ -148,18 +169,18 @@ const styles = StyleSheet.create({
 
   title: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
   },
 
   label: {
-    color: "#ccc",
-    marginBottom: 8,
+    color: "#aaa",
     marginTop: 15,
+    marginBottom: 5,
   },
 
   input: {
-    backgroundColor: "#111827",
+    backgroundColor: "#121826",
     color: "#fff",
     padding: 15,
     borderRadius: 12,
@@ -168,10 +189,11 @@ const styles = StyleSheet.create({
   rowWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
+    marginTop: 5,
   },
 
   chip: {
-    backgroundColor: "#111827",
+    backgroundColor: "#121826",
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 20,
@@ -192,10 +214,10 @@ const styles = StyleSheet.create({
   },
 
   button: {
+    marginTop: 30,
     padding: 16,
     borderRadius: 14,
     alignItems: "center",
-    marginTop: 30,
   },
 
   buttonText: {

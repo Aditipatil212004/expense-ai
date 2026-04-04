@@ -1,69 +1,110 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import API from "../services/api";
 
 export default function InsightsScreen() {
+  const [expenses, setExpenses] = useState([]);
+
+  // 🔄 FETCH DATA
+  const fetchData = async () => {
+    try {
+      const res = await API.get("/expenses");
+      setExpenses(res.data || []);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  // 🔁 AUTO REFRESH
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
+
+  // 📊 CALCULATIONS
+  const spentList = expenses.filter((e) => e.type === "debit");
+  const receivedList = expenses.filter((e) => e.type === "credit");
+
+  const totalSpent = spentList.reduce((sum, e) => sum + e.amount, 0);
+  const totalReceived = receivedList.reduce((sum, e) => sum + e.amount, 0);
+
+  const netBalance = totalReceived - totalSpent;
+
+  const hasData = expenses.length > 0;
+
   return (
     <View style={styles.container}>
       
-      {/* Header */}
+      {/* HEADER */}
       <Text style={styles.title}>Insights</Text>
       <Text style={styles.subtitle}>Your financial overview</Text>
 
-      {/* Cards Row */}
+      {/* CARDS */}
       <View style={styles.row}>
         
-        {/* Spent Card */}
-        <View style={[styles.card, styles.spentCard]}>
+        {/* SPENT */}
+        <View style={[styles.card, styles.cardDark]}>
           <View style={styles.iconCircleRed}>
             <Ionicons name="arrow-up" size={16} color="#fff" />
           </View>
           <Text style={styles.cardTitle}>Spent</Text>
-          <Text style={styles.amount}>₹0</Text>
-          <Text style={styles.transactions}>0 transactions</Text>
+          <Text style={styles.amount}>₹{totalSpent}</Text>
+          <Text style={styles.transactions}>
+            {spentList.length} transactions
+          </Text>
         </View>
 
-        {/* Received Card */}
-        <View style={[styles.card, styles.receivedCard]}>
+        {/* RECEIVED */}
+        <View style={[styles.card, styles.cardDark]}>
           <View style={styles.iconCircleGreen}>
             <Ionicons name="arrow-down" size={16} color="#fff" />
           </View>
           <Text style={styles.cardTitle}>Received</Text>
-          <Text style={styles.amount}>₹0</Text>
-          <Text style={styles.transactions}>0 transactions</Text>
+          <Text style={styles.amount}>₹{totalReceived}</Text>
+          <Text style={styles.transactions}>
+            {receivedList.length} transactions
+          </Text>
         </View>
 
       </View>
 
-      {/* Net Balance */}
+      {/* NET BALANCE */}
       <View style={styles.balanceCard}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Ionicons name="trending-up" size={18} color="#fff" />
           <Text style={styles.balanceTitle}> Net Balance</Text>
         </View>
 
-        <Text style={styles.balanceAmount}>+₹0</Text>
+        <Text style={styles.balanceAmount}>₹{netBalance}</Text>
+
         <Text style={styles.balanceSub}>
-          You saved ₹0 this month! 🎉
+          {netBalance >= 0
+            ? `You saved ₹${netBalance} 🎉`
+            : `Overspent ₹${Math.abs(netBalance)} ⚠`}
         </Text>
       </View>
 
-      {/* Empty State */}
-      <View style={styles.emptyContainer}>
-        <Ionicons name="analytics-outline" size={40} color="#888" />
-        <Text style={styles.emptyTitle}>No insights yet</Text>
-        <Text style={styles.emptySub}>
-          Add transactions to see your spending analysis
-        </Text>
-      </View>
-
+      {/* EMPTY STATE */}
+      {!hasData && (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="analytics-outline" size={40} color="#888" />
+          <Text style={styles.emptyTitle}>No insights yet</Text>
+          <Text style={styles.emptySub}>
+            Add transactions to unlock insights 🚀
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0b0b0f",
+    backgroundColor: "#05060A",
     padding: 20,
   },
 
@@ -88,32 +129,28 @@ const styles = StyleSheet.create({
   card: {
     width: "48%",
     borderRadius: 20,
-    padding: 15,
+    padding: 18,
   },
 
-  spentCard: {
-    backgroundColor: "#f2d6d6",
-  },
-
-  receivedCard: {
-    backgroundColor: "#cfe8d9",
+  cardDark: {
+    backgroundColor: "#121826",
   },
 
   iconCircleRed: {
-    backgroundColor: "#e74c3c",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    backgroundColor: "#ef4444",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
   },
 
   iconCircleGreen: {
-    backgroundColor: "#27ae60",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    backgroundColor: "#22c55e",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
@@ -121,23 +158,24 @@ const styles = StyleSheet.create({
 
   cardTitle: {
     fontSize: 14,
-    color: "#333",
+    color: "#aaa",
   },
 
   amount: {
     fontSize: 22,
     fontWeight: "bold",
     marginTop: 5,
+    color: "#fff",
   },
 
   transactions: {
     fontSize: 12,
-    color: "#666",
+    color: "#888",
     marginTop: 5,
   },
 
   balanceCard: {
-    backgroundColor: "#18a873",
+    backgroundColor: "#8b5cf6",
     marginTop: 20,
     borderRadius: 20,
     padding: 20,
@@ -157,7 +195,7 @@ const styles = StyleSheet.create({
   },
 
   balanceSub: {
-    color: "#e0f7ee",
+    color: "#eee",
     marginTop: 5,
   },
 
