@@ -24,7 +24,7 @@
       "package": "com.aditipatil21.frontend"
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
