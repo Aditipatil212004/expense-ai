@@ -1,9 +1,10 @@
+DrawerNavigator.js
+
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import MainTabs from "./MainTabs";
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import LogoutScreen from "../screens/LogoutScreen";
-
 
 const Drawer = createDrawerNavigator();
 
@@ -11,7 +12,7 @@ export default function DrawerNavigator() {
   return (
     <Drawer.Navigator
       screenOptions={{
-        headerShown: true,
+        headerShown: false,
         drawerStyle: {
           backgroundColor: "#0a0a12",
         },

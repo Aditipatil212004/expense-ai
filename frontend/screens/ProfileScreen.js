@@ -49,6 +49,22 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
+  const showComingSoon = (feature) => {
+    Alert.alert(
+      feature,
+      "This feature is coming soon!",
+      [{ text: "OK" }]
+    );
+  };
+
+  const showAbout = () => {
+    Alert.alert(
+      "About Expense Tracker",
+      "Version 1.0.0\n\nA modern expense tracking application to manage your finances efficiently.\n\n© 2024 Expense Tracker",
+      [{ text: "OK" }]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView 
@@ -86,12 +102,12 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>24</Text>
+                <Text style={styles.statValue}>0</Text>
                 <Text style={styles.statLabel}>Transactions</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>5</Text>
+                <Text style={styles.statValue}>0</Text>
                 <Text style={styles.statLabel}>Budgets</Text>
               </View>
             </View>
@@ -107,16 +123,19 @@ export default function ProfileScreen({ navigation }) {
               icon="person-outline" 
               text="Edit Profile" 
               subtitle="Update your personal information"
+              onPress={() => showComingSoon("Edit Profile")}
             />
             <ProfileItem 
               icon="lock-closed-outline" 
               text="Change Password" 
               subtitle="Update your security credentials"
+              onPress={() => showComingSoon("Change Password")}
             />
             <ProfileItem 
               icon="shield-checkmark-outline" 
               text="Privacy & Security" 
               subtitle="Manage your privacy settings"
+              onPress={() => navigation.navigate("Settings")}
               hideDivider
             />
           </View>
@@ -131,16 +150,19 @@ export default function ProfileScreen({ navigation }) {
               icon="notifications-outline" 
               text="Notifications" 
               subtitle="Manage notification settings"
+              onPress={() => navigation.navigate("Settings")}
             />
             <ProfileItem 
               icon="moon-outline" 
               text="Dark Mode" 
               subtitle="Switch app appearance"
+              onPress={() => navigation.navigate("Settings")}
             />
             <ProfileItem 
               icon="language-outline" 
               text="Language" 
               subtitle="Change app language"
+              onPress={() => showComingSoon("Language")}
               hideDivider
             />
           </View>
@@ -155,11 +177,13 @@ export default function ProfileScreen({ navigation }) {
               icon="help-circle-outline" 
               text="Help & Support" 
               subtitle="Get help with the app"
+              onPress={() => showComingSoon("Help & Support")}
             />
             <ProfileItem 
               icon="information-circle-outline" 
               text="About" 
               subtitle="App version and info"
+              onPress={showAbout}
               hideDivider
             />
           </View>
@@ -169,7 +193,7 @@ export default function ProfileScreen({ navigation }) {
         <TouchableOpacity 
           style={styles.logoutButton}
           onPress={logout}
-          activeOpacity={0.9}
+          activeOpacity={0.7}
         >
           <View style={styles.logoutContent}>
             <View style={styles.logoutIconContainer}>
@@ -187,8 +211,12 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-const ProfileItem = ({ icon, text, subtitle, hideDivider }) => (
-  <TouchableOpacity style={styles.item} activeOpacity={0.7}>
+const ProfileItem = ({ icon, text, subtitle, onPress, hideDivider }) => (
+  <TouchableOpacity 
+    style={styles.item} 
+    activeOpacity={0.7}
+    onPress={onPress}
+  >
     <View style={styles.itemIconContainer}>
       <Ionicons name={icon} size={22} color="#8b5cf6" />
     </View>

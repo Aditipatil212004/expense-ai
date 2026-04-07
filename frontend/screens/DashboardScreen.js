@@ -2,7 +2,6 @@
 import React, {
   useState,
   useEffect,
-  useLayoutEffect,
   useRef,
   useCallback,
 } from "react";
@@ -12,9 +11,9 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  FlatList,
   TouchableOpacity,
   ScrollView,
+  SafeAreaView,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -22,7 +21,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
-import { NativeEventEmitter } from "react-native";
 import API from "../services/api";
 
 const getCategoryIcon = (category) => {
@@ -49,10 +47,7 @@ const getCategoryColor = (category) => {
 
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
-  const [liveNotification, setLiveNotification] = useState("");
   const [user, setUser] = useState(null);
-
-  const latestExpenseIdRef = useRef(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -77,16 +72,6 @@ export default function DashboardScreen({ navigation }) {
     }, [getExpenses])
   );
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => (
-        <TouchableOpacity onPress={() => navigation.openDrawer()}>
-          <Ionicons name="menu" size={24} color="#fff" />
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation]);
-
   const total = expenses.reduce((sum, e) => {
     return e.type === "credit" ? sum + e.amount : sum - e.amount;
   }, 0);
@@ -102,11 +87,11 @@ export default function DashboardScreen({ navigation }) {
     });
 
   const chartData = Object.keys(categoryMap).length > 0 ? [
-    { name: "Food", amount: categoryMap["Food"] || 0, color: "#f97316", legendFontColor: "#94a3b8", legendFontSize: 11 },
-    { name: "Shopping", amount: categoryMap["Shopping"] || 0, color: "#a855f7", legendFontColor: "#94a3b8", legendFontSize: 11 },
-    { name: "Travel", amount: categoryMap["Travel"] || 0, color: "#06b6d4", legendFontColor: "#94a3b8", legendFontSize: 11 },
-    { name: "Entertainment", amount: categoryMap["Entertainment"] || 0, color: "#ec4899", legendFontColor: "#94a3b8", legendFontSize: 11 },
-    { name: "Bills", amount: categoryMap["Bills"] || 0, color: "#ef4444", legendFontColor: "#94a3b8", legendFontSize: 11 },
+    { name: "Food", amount: categoryMap["Food"] || 0, color: "#f97316", legendFontColor: "#cbd5e1", legendFontSize: 10 },
+    { name: "Shopping", amount: categoryMap["Shopping"] || 0, color: "#a855f7", legendFontColor: "#cbd5e1", legendFontSize: 10 },
+    { name: "Travel", amount: categoryMap["Travel"] || 0, color: "#06b6d4", legendFontColor: "#cbd5e1", legendFontSize: 10 },
+    { name: "Entertainment", amount: categoryMap["Entertainment"] || 0, color: "#ec4899", legendFontColor: "#cbd5e1", legendFontSize: 10 },
+    { name: "Bills", amount: categoryMap["Bills"] || 0, color: "#ef4444", legendFontColor: "#cbd5e1", legendFontSize: 10 },
   ] : [];
 
   const renderTransaction = ({ item }) => {
@@ -176,28 +161,36 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* HEADER */}
-        <View style={styles.header}>
-          <View>
+      <SafeAreaView style={styles.safeArea}>
+        {/* CUSTOM HEADER */}
+        <View style={styles.customHeader}>
+          <TouchableOpacity 
+            style={styles.menuButton}
+            onPress={() => navigation.openDrawer()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="menu" size={26} color="#f1f5f9" />
+          </TouchableOpacity>
+
+          <View style={styles.headerCenter}>
             <Text style={styles.greeting}>Welcome Back 👋</Text>
             <Text style={styles.username}>{user?.name || "User"}</Text>
           </View>
 
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.headerButton}>
-              <Ionicons name="search-outline" size={20} color="#94a3b8" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton}>
-              <View style={styles.notificationDot} />
-              <Ionicons name="notifications-outline" size={20} color="#94a3b8" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            style={styles.notificationButton}
+            activeOpacity={0.7}
+          >
+            <View style={styles.notificationDot} />
+            <Ionicons name="notifications-outline" size={24} color="#cbd5e1" />
+          </TouchableOpacity>
         </View>
+      </SafeAreaView>
 
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* BALANCE CARD */}
         <View style={styles.balanceWrapper}>
           <LinearGradient
@@ -253,6 +246,7 @@ export default function DashboardScreen({ navigation }) {
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate("AddExpense")}
+            activeOpacity={0.7}
           >
             <View style={[styles.actionIcon, { backgroundColor: "#8b5cf615" }]}>
               <Ionicons name="add" size={22} color="#8b5cf6" />
@@ -263,6 +257,7 @@ export default function DashboardScreen({ navigation }) {
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate("Budget")}
+            activeOpacity={0.7}
           >
             <View style={[styles.actionIcon, { backgroundColor: "#06b6d415" }]}>
               <Ionicons name="pie-chart" size={22} color="#06b6d4" />
@@ -273,6 +268,7 @@ export default function DashboardScreen({ navigation }) {
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate("Insights")}
+            activeOpacity={0.7}
           >
             <View style={[styles.actionIcon, { backgroundColor: "#f9731615" }]}>
               <Ionicons name="stats-chart" size={22} color="#f97316" />
@@ -283,6 +279,7 @@ export default function DashboardScreen({ navigation }) {
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate("Profile")}
+            activeOpacity={0.7}
           >
             <View style={[styles.actionIcon, { backgroundColor: "#ec489915" }]}>
               <Ionicons name="person" size={22} color="#ec4899" />
@@ -302,6 +299,7 @@ export default function DashboardScreen({ navigation }) {
               <TouchableOpacity 
                 style={styles.viewDetailsButton}
                 onPress={() => navigation.navigate("Insights")}
+                activeOpacity={0.7}
               >
                 <Text style={styles.viewDetailsText}>Details</Text>
                 <Ionicons name="chevron-forward" size={16} color="#8b5cf6" />
@@ -312,10 +310,10 @@ export default function DashboardScreen({ navigation }) {
               <PieChart
                 data={chartData}
                 width={Dimensions.get("window").width - 80}
-                height={220}
+                height={200}
                 accessor="amount"
                 backgroundColor="transparent"
-                paddingLeft="15"
+                paddingLeft="10"
                 chartConfig={{ color: () => "#fff" }}
                 hasLegend={true}
               />
@@ -333,7 +331,7 @@ export default function DashboardScreen({ navigation }) {
               </Text>
             </View>
             {expenses.length > 8 && (
-              <TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.7}>
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             )}
@@ -362,43 +360,53 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f172a",
   },
 
-  scrollContent: {
-    paddingBottom: 40,
+  safeArea: {
+    backgroundColor: "#0f172a",
   },
 
-  header: {
+  customHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 24,
+    paddingVertical: 16,
+    backgroundColor: "#0f172a",
+  },
+
+  menuButton: {
+    backgroundColor: "#1e293b",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 16,
   },
 
   greeting: {
     color: "#64748b",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "500",
-    marginBottom: 6,
+    marginBottom: 4,
   },
 
   username: {
     color: "#f1f5f9",
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: "700",
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
 
-  headerActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-
-  headerButton: {
+  notificationButton: {
     backgroundColor: "#1e293b",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -417,8 +425,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
 
+  scrollContent: {
+    paddingBottom: 40,
+  },
+
   balanceWrapper: {
     paddingHorizontal: 20,
+    marginTop: 16,
     marginBottom: 24,
     shadowColor: "#8b5cf6",
     shadowOffset: { width: 0, height: 16 },
@@ -493,7 +506,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
   },
 
   statIconContainer: {
@@ -503,6 +515,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 12,
   },
 
   statContent: {
@@ -534,7 +547,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     marginBottom: 28,
-    gap: 12,
   },
 
   actionButton: {
@@ -543,7 +555,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderRadius: 16,
-    gap: 10,
+    marginHorizontal: 6,
   },
 
   actionIcon: {
@@ -552,6 +564,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 10,
   },
 
   actionText: {
@@ -600,13 +613,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 12,
-    gap: 4,
   },
 
   viewDetailsText: {
     color: "#8b5cf6",
     fontSize: 13,
     fontWeight: "700",
+    marginRight: 4,
   },
 
   chartContainer: {
@@ -632,13 +645,14 @@ const styles = StyleSheet.create({
   },
 
   transactionsList: {
-    gap: 12,
+    marginTop: 0,
   },
 
   transactionCard: {
     backgroundColor: "#1e293b",
     borderRadius: 16,
     overflow: "hidden",
+    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -650,7 +664,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    gap: 14,
   },
 
   transactionIcon: {
@@ -659,29 +672,30 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 14,
   },
 
   transactionDetails: {
     flex: 1,
-    gap: 6,
   },
 
   transactionCategory: {
     color: "#f1f5f9",
     fontSize: 16,
     fontWeight: "700",
+    marginBottom: 6,
   },
 
   transactionMeta: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
   },
 
   transactionMerchant: {
     color: "#64748b",
     fontSize: 13,
     fontWeight: "500",
+    marginLeft: 6,
   },
 
   metaDot: {
@@ -689,6 +703,7 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 1.5,
     backgroundColor: "#475569",
+    marginHorizontal: 6,
   },
 
   transactionMethod: {
@@ -699,13 +714,13 @@ const styles = StyleSheet.create({
 
   transactionAmountContainer: {
     alignItems: "flex-end",
-    gap: 4,
   },
 
   transactionAmount: {
     color: "#ef4444",
     fontSize: 18,
     fontWeight: "700",
+    marginBottom: 4,
   },
 
   creditAmount: {
@@ -762,7 +777,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 28,
     borderRadius: 16,
-    gap: 10,
     shadowColor: "#8b5cf6",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
@@ -774,5 +788,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+    marginLeft: 10,
   },
 });
