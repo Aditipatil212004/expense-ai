@@ -1,14 +1,16 @@
 import { NavigationContainer } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
-import { PermissionsAndroid, Platform } from "react-native";
+import { PermissionsAndroid, Platform, Alert } from "react-native";
 
 import AuthNavigator from "./navigation/AuthNavigator";
 import DrawerNavigator from "./navigation/DrawerNavigator";
-import { startSmsListener } from "./services/smsListener";
+import { startSmsListener, testBackendConnection } from "./services/smsListener";
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null);
+  const [smsPermissionGranted, setSmsPermissionGranted] = useState(false);
+  const [backendReachable, setBackendReachable] = useState(false);
 
  useEffect(() => {
   const checkLogin = async () => {
@@ -23,40 +25,87 @@ export default function App() {
   return () => clearInterval(interval);
 }, []);
 
+// TEST BACKEND CONNECTION ON LOGIN
 useEffect(() => {
-  const requestSmsPermission = async () => {
+  if (isLoggedIn) {
+    console.log("🔗 Testing backend connection...");
+    testBackendConnection().then(setBackendReachable);
+  }
+}, [isLoggedIn]);
+
+// REQUEST SMS PERMISSIONS
+useEffect(() => {
+  const requestSmsPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-          {
-            title: 'SMS Permission',
-            message: 'This app needs access to SMS to track expenses.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
+        // Check if already granted
+        const receiveSmsGranted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.RECEIVE_SMS
         );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('SMS permission granted');
+        const readSmsGranted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.READ_SMS
+        );
+
+        console.log("📱 SMS Permissions - RECEIVE:", receiveSmsGranted, "READ:", readSmsGranted);
+
+        if (receiveSmsGranted && readSmsGranted) {
+          console.log("✅ SMS permissions already granted");
+          setSmsPermissionGranted(true);
+          return;
+        }
+
+        // Request both permissions
+        const permissions = [
+          PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
+          PermissionsAndroid.PERMISSIONS.READ_SMS,
+        ];
+
+        const results = await PermissionsAndroid.requestMultiple(permissions, {
+          title: 'SMS Access Required',
+          message: 'This app needs permission to read SMS for automatic expense tracking.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Deny',
+          buttonPositive: 'Allow',
+        });
+
+        console.log("📱 Permission Results:", results);
+
+        if (
+          results[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] === PermissionsAndroid.RESULTS.GRANTED &&
+          results[PermissionsAndroid.PERMISSIONS.READ_SMS] === PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          console.log('✅ SMS permissions granted');
+          setSmsPermissionGranted(true);
         } else {
-          console.log('SMS permission denied');
+          console.log('⚠️ SMS permissions denied');
+          Alert.alert(
+            'SMS Permission Required',
+            'Please enable SMS permissions in Settings > Apps for SMS-based expense tracking.'
+          );
         }
       } catch (err) {
-        console.warn(err);
+        console.warn("❌ Permission Error:", err);
       }
     }
   };
 
-  requestSmsPermission();
+  requestSmsPermissions();
 }, []);
 
+// START SMS LISTENER (ONLY AFTER LOGIN & PERMISSIONS)
 useEffect(() => {
-  if (isLoggedIn) {
+  if (isLoggedIn && smsPermissionGranted) {
+    console.log("🚀 Starting SMS listener...");
     const subscription = startSmsListener();
-    return () => subscription.remove();
+    
+    return () => {
+      if (subscription) {
+        console.log("🛑 Stopping SMS listener...");
+        subscription.remove();
+      }
+    };
   }
-}, [isLoggedIn]);
+}, [isLoggedIn, smsPermissionGranted]);
 
   if (isLoggedIn === null) return null;
 
