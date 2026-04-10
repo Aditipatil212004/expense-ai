@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  DeviceEventEmitter,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -59,12 +60,32 @@ export default function DashboardScreen({ navigation }) {
 
   const getExpenses = useCallback(async () => {
     try {
+      console.log("📥 Fetching expenses from API...");
       const res = await API.get("/expenses");
+      console.log("✅ Expenses fetched:", res.data?.length || 0, "items");
       setExpenses(res.data || []);
     } catch (err) {
-      console.log(err);
+      console.error("❌ Error fetching expenses:");
+      console.error("   Message:", err.message);
+      console.error("   Status:", err.response?.status);
+      console.error("   Data:", err.response?.data);
+      console.error("   Full Error:", JSON.stringify(err, null, 2));
     }
   }, []);
+
+  useEffect(() => {
+    console.log("📻 Dashboard: Setting up SMS event listener...");
+    const subscription = DeviceEventEmitter.addListener("expenseAddedFromSms", (data) => {
+      console.log("🔔 Dashboard: Received SMS event!", data);
+      console.log("🔄 Dashboard: Calling getExpenses()...");
+      getExpenses();
+    });
+
+    return () => {
+      console.log("📴 Dashboard: Removing SMS event listener");
+      subscription.remove();
+    };
+  }, [getExpenses]);
 
   useFocusEffect(
     useCallback(() => {

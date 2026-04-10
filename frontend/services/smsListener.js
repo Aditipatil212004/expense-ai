@@ -1,29 +1,23 @@
 import SmsListener from "react-native-android-sms-listener";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alert } from "react-native";
+import { Alert, DeviceEventEmitter } from "react-native";
+import { BACKEND_BASE_URL, API_BASE_URL } from "./config";
 
-// 🔧 CONFIGURABLE BACKEND HOST
-// If you are using the Android emulator, keep 10.0.2.2.
-// If you are using a physical Android device, change BACKEND_HOST to your computer's LAN IP.
-// Example: http://192.168.1.123:5000
-const BACKEND_HOST = "10.0.2.2";
-const BACKEND_PORT = 5000;
-export const BACKEND_BASE_URL = `http://${BACKEND_HOST}:${BACKEND_PORT}`;
-export const API_BASE_URL = `${BACKEND_BASE_URL}/api`;
-
-// Test if backend is reachable
 export const testBackendConnection = async () => {
   try {
+    console.log("🧪 Testing backend connection to:", BACKEND_BASE_URL);
     const response = await axios.get(BACKEND_BASE_URL, { timeout: 5000 });
     console.log("✅ Backend is reachable:", response.data);
     return true;
   } catch (error) {
-    console.error("❌ Backend not reachable. Error:", error.message);
+    console.error("❌ Backend not reachable.");
+    console.error("  URL:", BACKEND_BASE_URL);
+    console.error("  Error:", error.message);
+    console.error("  Response:", error.response?.data || "No response");
     Alert.alert(
       "Backend Connection Failed",
-      `Backend is not running at ${BACKEND_BASE_URL}\n\nIf you are using a physical device, update BACKEND_HOST in frontend/services/smsListener.js to your PC LAN IP:` +
-      "\nexample: http://192.168.1.123:5000"
+      `Cannot reach ${BACKEND_BASE_URL}.\nError: ${error.message}`
     );
     return false;
   }
@@ -71,9 +65,22 @@ const parseAndSendSms = async (message) => {
 
     // 💰 AMOUNT PARSING (FLEXIBLE)
     const amountMatch = body.match(/(Rs\.?|INR|₹)\s?(\d+(?:,\d+)*(?:\.\d{1,2})?)/i);
+    const amountText = amountMatch ? amountMatch[2] : null;
 
-    if (!amountMatch) {
-      console.log("⚠️ No amount found in SMS");
+    let amount;
+    if (amountText) {
+      amount = parseFloat(amountText.replace(/,/g, ""));
+    } else {
+      const fallbackMatch = body.match(/([0-9]+(?:,[0-9]{3})*(?:\.\d{1,2})?)/);
+      if (!fallbackMatch) {
+        console.log("⚠️ No amount found in SMS");
+        return;
+      }
+      amount = parseFloat(fallbackMatch[1].replace(/,/g, ""));
+    }
+
+    if (Number.isNaN(amount)) {
+      console.log("⚠️ Unable to parse amount from SMS");
       return;
     }
 
@@ -118,18 +125,11 @@ const parseAndSendSms = async (message) => {
     }
     await AsyncStorage.setItem("last_sms_hash", smsHash);
 
-    const amount = parseFloat(amountMatch[2].replace(/,/g, ""));
-    const category = detectCategory(merchant);
-
     const expenseData = {
-      amount,
-      category,
-      description: `Payment at ${merchant}`,
-      date,
-      merchant,
+      message: body,
     };
 
-    console.log("📤 Sending expense:", expenseData);
+    console.log("📤 Sending notification to backend:", expenseData);
 
     // 🔐 AUTH TOKEN
     const token = await AsyncStorage.getItem("token");
@@ -146,22 +146,27 @@ const parseAndSendSms = async (message) => {
     // 🌐 API CALL WITH TIMEOUT AND DETAILED ERROR HANDLING
     try {
       const axiosInstance = axios.create({
+        baseURL: API_BASE_URL,
         timeout: 10000, // 10 second timeout
       });
 
-      const response = await axiosInstance.post(`${API_BASE_URL}/expenses`, expenseData, {
+      const response = await axiosInstance.post("/expenses/notifications/ingest", expenseData, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
 
-      console.log("✅ Expense added from SMS:", response.data);
+      console.log("✅ Notification processed from SMS:", response.data);
+      DeviceEventEmitter.emit("expenseAddedFromSms", response.data);
 
-      // 🔔 USER FEEDBACK
+      const savedAmount = response.data?.transaction?.amount ?? amount;
+      const savedCategory = response.data?.transaction?.category ?? detectCategory(merchant);
+      const savedMerchant = response.data?.transaction?.merchant ?? merchant;
+
       Alert.alert(
         "✅ Expense Tracked", 
-        `₹${amount} added for ${category} at ${merchant}`
+        `₹${savedAmount} added for ${savedCategory} at ${savedMerchant}`
       );
     } catch (networkError) {
       console.error("❌ Network Error Details:", {
@@ -175,7 +180,7 @@ const parseAndSendSms = async (message) => {
       // Alert user about network issue
       Alert.alert(
         "Network Error",
-        `Failed to send expense: ${networkError.message}\n\nMake sure backend is running at: http://10.0.2.2:5000`
+        `Failed to send expense: ${networkError.message}\n\nServer response: ${networkError.response?.data?.message || JSON.stringify(networkError.response?.data)}\n\nMake sure backend is running at: ${API_BASE_URL}`
       );
 
       // Save to pending for retry
