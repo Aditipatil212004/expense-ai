@@ -3,6 +3,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert, DeviceEventEmitter } from "react-native";
 import { BACKEND_BASE_URL, API_BASE_URL } from "./config";
+import API from "./api";
 
 export const testBackendConnection = async () => {
   try {
@@ -145,21 +146,12 @@ const parseAndSendSms = async (message) => {
 
     // 🌐 API CALL WITH TIMEOUT AND DETAILED ERROR HANDLING
     try {
-      const axiosInstance = axios.create({
-        baseURL: API_BASE_URL,
-        timeout: 10000, // 10 second timeout
-      });
-
       console.log("📤 Making POST request to /expenses/notifications/ingest");
       console.log("   URL:", API_BASE_URL + "/expenses/notifications/ingest");
       console.log("   Data:", JSON.stringify(expenseData, null, 2));
+      console.log("   Using configured API instance with interceptors...");
       
-      const response = await axiosInstance.post("/expenses/notifications/ingest", expenseData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await API.post("/expenses/notifications/ingest", expenseData);
 
       console.log("✅ Backend response received");
       console.log("   Status:", response.status);

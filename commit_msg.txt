@@ -1,1 +1,1 @@
-Improve SMS event and dashboard logging  
+Use shared API instance with interceptors in SMS listener  
