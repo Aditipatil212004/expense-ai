@@ -1,1 +1,1 @@
-Stop interrupting SMS listener with constant login checks  
+Add comprehensive SMS listener diagnostic logging  

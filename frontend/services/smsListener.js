@@ -36,11 +36,17 @@ export const startSmsListener = () => {
       console.log("   Body:", message.body);
       console.log("   Timestamp:", message.date);
       console.log("===================================");
-      parseAndSendSms(message);
+      
+      // Call parse function (don't await it here to prevent blocking)
+      parseAndSendSms(message).catch(err => {
+        console.error("❌ [SMS Callback] Error in parseAndSendSms:", err.message);
+      });
     });
 
     console.log("🟢 SMS Listener started successfully");
     console.log("   Waiting for incoming SMS messages...");
+    console.log("   Subscription ID:", subscription);
+    
     return subscription;
   } catch (error) {
     console.error("❌ Failed to start SMS Listener:", error);
