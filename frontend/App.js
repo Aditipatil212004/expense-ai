@@ -20,9 +20,8 @@ export default function App() {
 
   checkLogin();
 
-  const interval = setInterval(checkLogin, 1000); // 🔥 auto update
-
-  return () => clearInterval(interval);
+  // Only check on app focus/resume, not every 1000ms
+  // The constant interval was interrupting SMS listener setup
 }, []);
 
 // TEST BACKEND CONNECTION ON LOGIN

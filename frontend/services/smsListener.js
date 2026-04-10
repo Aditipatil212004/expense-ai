@@ -29,15 +29,22 @@ export const startSmsListener = () => {
   try {
     console.log("🔴 SMS Listener starting...");
     
+    // Add a global listener that logs all SMS
     const subscription = SmsListener.addListener((message) => {
-      console.log("📩 Raw SMS received:", JSON.stringify(message, null, 2));
+      console.log("📩 ===== RAW SMS RECEIVED =====");
+      console.log("   From:", message.originatingAddress);
+      console.log("   Body:", message.body);
+      console.log("   Timestamp:", message.date);
+      console.log("===================================");
       parseAndSendSms(message);
     });
 
     console.log("🟢 SMS Listener started successfully");
+    console.log("   Waiting for incoming SMS messages...");
     return subscription;
   } catch (error) {
     console.error("❌ Failed to start SMS Listener:", error);
+    console.error("   Error details:", JSON.stringify(error, null, 2));
     return null;
   }
 };
@@ -58,8 +65,16 @@ const detectCategory = (merchant) => {
 
 // 🔍 MAIN PARSER
 const parseAndSendSms = async (message) => {
+  console.log("🔍 [parseAndSendSms] Function called");
   try {
     const { body, originatingAddress } = message;
+
+    if (!body || !originatingAddress) {
+      console.error("❌ [parseAndSendSms] Missing message properties");
+      console.error("   body:", body);
+      console.error("   originatingAddress:", originatingAddress);
+      return;
+    }
 
     console.log("🔍 Processing SMS from:", originatingAddress);
     console.log("📄 SMS body:", body);
@@ -192,6 +207,13 @@ const parseAndSendSms = async (message) => {
       console.log("📝 Expense saved to pending queue for later retry");
     }
   } catch (error) {
-    console.error("❌ SMS Processing Error:", error.message);
+    console.error("❌ CRITICAL SMS Processing Error:");
+    console.error("   Message:", error.message);
+    console.error("   Stack:", error.stack);
+    console.error("   Full error:", JSON.stringify(error, null, 2));
+    Alert.alert(
+      "SMS Processing Error",
+      `Failed to process SMS: ${error.message}`
+    );
   }
 };
