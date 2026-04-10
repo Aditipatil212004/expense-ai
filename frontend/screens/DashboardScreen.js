@@ -75,17 +75,29 @@ export default function DashboardScreen({ navigation }) {
 
   useEffect(() => {
     console.log("📻 Dashboard: Setting up SMS event listener...");
-    const subscription = DeviceEventEmitter.addListener("expenseAddedFromSms", (data) => {
-      console.log("🔔 Dashboard: Received SMS event!", data);
-      console.log("🔄 Dashboard: Calling getExpenses()...");
-      getExpenses();
-    });
+    
+    const handleSmsExpenseAdded = async () => {
+      console.log("🔔 Dashboard: Received SMS event! Refreshing expenses...");
+      // Add a small delay to ensure backend has processed the expense
+      setTimeout(async () => {
+        try {
+          const res = await API.get("/expenses");
+          console.log("✅ Dashboard: Expenses refreshed after SMS:", res.data?.length || 0, "items");
+          console.log("📊 Updated expenses:", res.data);
+          setExpenses(res.data || []);
+        } catch (err) {
+          console.error("❌ Dashboard: Error refreshing after SMS:", err.message);
+        }
+      }, 500); // 500ms delay to let backend persist the data
+    };
+
+    const subscription = DeviceEventEmitter.addListener("expenseAddedFromSms", handleSmsExpenseAdded);
 
     return () => {
       console.log("📴 Dashboard: Removing SMS event listener");
       subscription.remove();
     };
-  }, [getExpenses]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

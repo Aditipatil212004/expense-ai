@@ -158,7 +158,9 @@ const parseAndSendSms = async (message) => {
       });
 
       console.log("✅ Notification processed from SMS:", response.data);
-      DeviceEventEmitter.emit("expenseAddedFromSms", response.data);
+      const emitData = response.data?.transaction || response.data;
+      console.log("📢 Emitting expenseAddedFromSms event with data:", JSON.stringify(emitData, null, 2));
+      DeviceEventEmitter.emit("expenseAddedFromSms", emitData);
 
       const savedAmount = response.data?.transaction?.amount ?? amount;
       const savedCategory = response.data?.transaction?.category ?? detectCategory(merchant);
