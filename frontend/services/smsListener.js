@@ -5,6 +5,19 @@ import { Alert, DeviceEventEmitter } from "react-native";
 import { BACKEND_BASE_URL, API_BASE_URL } from "./config";
 import API from "./api";
 
+// 🧪 TEST FUNCTION - Call this manually to test the entire SMS flow
+export const testSmsParsing = async () => {
+  const testMessage = {
+    body: "Your bank account debited by Rs. 327 at Amazon for SHOPPING",
+    originatingAddress: "+91TEST"
+  };
+  
+  console.log("🧪🧪🧪 MANUAL SMS TEST STARTED 🧪🧪🧪");
+  console.log("Testing with message:", testMessage);
+  await parseAndSendSms(testMessage);
+  console.log("🧪🧪🧪 MANUAL SMS TEST FINISHED 🧪🧪🧪");
+};
+
 export const testBackendConnection = async () => {
   try {
     console.log("🧪 Testing backend connection to:", BACKEND_BASE_URL);
@@ -28,14 +41,20 @@ export const testBackendConnection = async () => {
 export const startSmsListener = () => {
   try {
     console.log("🔴 SMS Listener starting...");
+    console.log("   Using library:", "react-native-android-sms-listener");
+    
+    let smsReceiveCount = 0;
     
     // Add a global listener that logs all SMS
     const subscription = SmsListener.addListener((message) => {
-      console.log("📩 ===== RAW SMS RECEIVED =====");
+      smsReceiveCount++;
+      console.log(`📩 SMS #${smsReceiveCount} RECEIVED`);
+      console.log("===== RAW SMS RECEIVED =====");
       console.log("   From:", message.originatingAddress);
       console.log("   Body:", message.body);
       console.log("   Timestamp:", message.date);
-      console.log("===================================");
+      console.log("   Raw message object:", JSON.stringify(message, null, 2));
+      console.log("=============================");
       
       // Call parse function (don't await it here to prevent blocking)
       parseAndSendSms(message).catch(err => {
@@ -46,6 +65,7 @@ export const startSmsListener = () => {
     console.log("🟢 SMS Listener started successfully");
     console.log("   Waiting for incoming SMS messages...");
     console.log("   Subscription ID:", subscription);
+    console.log("   SMS receive count will increment with each message");
     
     return subscription;
   } catch (error) {
@@ -70,7 +90,7 @@ const detectCategory = (merchant) => {
 };
 
 // 🔍 MAIN PARSER
-const parseAndSendSms = async (message) => {
+export const parseAndSendSms = async (message) => {
   console.log("🔍 [parseAndSendSms] Function called");
   try {
     const { body, originatingAddress } = message;
