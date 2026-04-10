@@ -1,1 +1,1 @@
-Add SMS test function and counter logging  
+Add debug test SMS button to dashboard  
