@@ -1,1 +1,1 @@
-Fix SMS event and dashboard refresh  
+Improve SMS event and dashboard logging  

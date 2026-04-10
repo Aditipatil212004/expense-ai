@@ -150,6 +150,10 @@ const parseAndSendSms = async (message) => {
         timeout: 10000, // 10 second timeout
       });
 
+      console.log("📤 Making POST request to /expenses/notifications/ingest");
+      console.log("   URL:", API_BASE_URL + "/expenses/notifications/ingest");
+      console.log("   Data:", JSON.stringify(expenseData, null, 2));
+      
       const response = await axiosInstance.post("/expenses/notifications/ingest", expenseData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -157,10 +161,14 @@ const parseAndSendSms = async (message) => {
         },
       });
 
-      console.log("✅ Notification processed from SMS:", response.data);
+      console.log("✅ Backend response received");
+      console.log("   Status:", response.status);
+      console.log("   Response data:", JSON.stringify(response.data, null, 2));
+      
       const emitData = response.data?.transaction || response.data;
-      console.log("📢 Emitting expenseAddedFromSms event with data:", JSON.stringify(emitData, null, 2));
+      console.log("📢 About to emit event with data:", JSON.stringify(emitData, null, 2));
       DeviceEventEmitter.emit("expenseAddedFromSms", emitData);
+      console.log("✅ Event emitted successfully");
 
       const savedAmount = response.data?.transaction?.amount ?? amount;
       const savedCategory = response.data?.transaction?.category ?? detectCategory(merchant);

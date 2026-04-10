@@ -77,24 +77,36 @@ export default function DashboardScreen({ navigation }) {
     console.log("📻 Dashboard: Setting up SMS event listener...");
     
     const handleSmsExpenseAdded = async () => {
-      console.log("🔔 Dashboard: Received SMS event! Refreshing expenses...");
-      // Add a small delay to ensure backend has processed the expense
-      setTimeout(async () => {
-        try {
-          const res = await API.get("/expenses");
-          console.log("✅ Dashboard: Expenses refreshed after SMS:", res.data?.length || 0, "items");
-          console.log("📊 Updated expenses:", res.data);
-          setExpenses(res.data || []);
-        } catch (err) {
-          console.error("❌ Dashboard: Error refreshing after SMS:", err.message);
+      console.log("🔔 Dashboard: SMS event received! Starting refresh...");
+      console.log("   Current expenses count:", expenses.length);
+      
+      // Add delay to ensure backend has saved
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log("📡 Fetching updated expenses from API after 1 second delay...");
+      try {
+        const res = await API.get("/expenses");
+        console.log("✅ API Response received");
+        console.log("   Response data type:", typeof res.data);
+        console.log("   Response data length:", res.data?.length);
+        console.log("   Full response:", JSON.stringify(res.data, null, 2));
+        
+        if (res.data && Array.isArray(res.data)) {
+          console.log("🔄 Updating state with", res.data.length, "expenses");
+          setExpenses(res.data);
+          console.log("✅ State updated");
+        } else {
+          console.error("❌ Invalid response format");
         }
-      }, 500); // 500ms delay to let backend persist the data
+      } catch (err) {
+        console.error("❌ Failed to fetch expenses:", err.message);
+        console.error("   Error details:", JSON.stringify(err, null, 2));
+      }
     };
 
     const subscription = DeviceEventEmitter.addListener("expenseAddedFromSms", handleSmsExpenseAdded);
 
     return () => {
-      console.log("📴 Dashboard: Removing SMS event listener");
       subscription.remove();
     };
   }, []);
