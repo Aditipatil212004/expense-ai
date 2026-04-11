@@ -16,13 +16,17 @@ export default function App() {
  useEffect(() => {
   const checkLogin = async () => {
     const token = await AsyncStorage.getItem("token");
-    setIsLoggedIn(!!token);
+    const newIsLoggedIn = !!token;
+    console.log("🔍 Login check - Token exists:", !!token, "isLoggedIn:", newIsLoggedIn);
+    setIsLoggedIn(newIsLoggedIn);
   };
 
   checkLogin();
 
-  // Only check on app focus/resume, not every 1000ms
-  // The constant interval was interrupting SMS listener setup
+  // Listen for token changes (when it gets cleared due to expiration)
+  const tokenCheckInterval = setInterval(checkLogin, 2000); // Check every 2 seconds
+
+  return () => clearInterval(tokenCheckInterval);
 }, []);
 
 // TEST BACKEND CONNECTION ON LOGIN

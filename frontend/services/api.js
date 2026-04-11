@@ -1,5 +1,6 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert } from "react-native";
 import { API_BASE_URL } from "./config";
 
 const API = axios.create({
@@ -29,12 +30,37 @@ API.interceptors.response.use(
     console.log("✅ API Response Success:", response.status, response.config.url);
     return response;
   },
-  (error) => {
+  async (error) => {
     console.error("❌ API Response Error:");
     console.error("   Status:", error.response?.status);
     console.error("   URL:", error.config?.url);
     console.error("   Message:", error.response?.data?.message || error.message);
     console.error("   Data:", error.response?.data);
+
+    // Handle token expiration
+    if (error.response?.status === 401 && error.response?.data?.message === "Invalid or expired token") {
+      console.log("🔄 Token expired - clearing stored token and redirecting to login");
+      
+      // Clear stored token
+      await AsyncStorage.removeItem("token");
+      await AsyncStorage.removeItem("user");
+      
+      // Show alert and redirect to login
+      Alert.alert(
+        "Session Expired",
+        "Your session has expired. Please log in again.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              // This will trigger the app to show login screen
+              // since isLoggedIn will become false
+            }
+          }
+        ]
+      );
+    }
+
     return Promise.reject(error);
   }
 );

@@ -1,1 +1,1 @@
-Add debug test SMS button to dashboard  
+Add token expiration handling and auto redirect to login  
