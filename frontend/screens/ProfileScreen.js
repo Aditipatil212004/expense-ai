@@ -157,12 +157,6 @@ export default function ProfileScreen({ navigation }) {
               text="Dark Mode" 
               subtitle="Switch app appearance"
               onPress={() => navigation.navigate("Settings")}
-            />
-            <ProfileItem 
-              icon="language-outline" 
-              text="Language" 
-              subtitle="Change app language"
-              onPress={() => showComingSoon("Language")}
               hideDivider
             />
           </View>

@@ -13,143 +13,93 @@ export default function App() {
   const [backendReachable, setBackendReachable] = useState(false);
   const smsSubscriptionRef = useRef(null);
 
- useEffect(() => {
-  const checkLogin = async () => {
-    const token = await AsyncStorage.getItem("token");
-    const newIsLoggedIn = !!token;
-    console.log("🔍 Login check - Token exists:", !!token, "isLoggedIn:", newIsLoggedIn);
-    setIsLoggedIn(newIsLoggedIn);
-  };
+  // LOGIN CHECK
+  useEffect(() => {
+    const checkLogin = async () => {
+      const token = await AsyncStorage.getItem("token");
+      setIsLoggedIn(!!token);
+    };
 
-  checkLogin();
+    checkLogin();
 
-  // Listen for token changes (when it gets cleared due to expiration)
-  const tokenCheckInterval = setInterval(checkLogin, 2000); // Check every 2 seconds
+    const interval = setInterval(checkLogin, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
-  return () => clearInterval(tokenCheckInterval);
-}, []);
+  // TEST BACKEND
+  useEffect(() => {
+    if (isLoggedIn) {
+      testBackendConnection().then(setBackendReachable);
+    }
+  }, [isLoggedIn]);
 
-// TEST BACKEND CONNECTION ON LOGIN
-useEffect(() => {
-  if (isLoggedIn) {
-    console.log("🔗 Testing backend connection...");
-    testBackendConnection().then(setBackendReachable);
-  }
-}, [isLoggedIn]);
+  // REQUEST SMS PERMISSIONS
+  useEffect(() => {
+    const requestSmsPermissions = async () => {
+      if (Platform.OS === "android") {
+        try {
+          console.log("🔐 Requesting SMS permissions...");
+          const granted = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
+            PermissionsAndroid.PERMISSIONS.READ_SMS,
+          ]);
 
-// REQUEST SMS PERMISSIONS
-useEffect(() => {
-  const requestSmsPermissions = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        // Check if already granted
-        const receiveSmsGranted = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.RECEIVE_SMS
-        );
-        const readSmsGranted = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.READ_SMS
-        );
-
-        console.log("📱 Current SMS Permissions - RECEIVE:", receiveSmsGranted, "READ:", readSmsGranted);
-
-        if (receiveSmsGranted && readSmsGranted) {
-          console.log("✅ SMS permissions already granted - Setting state to true");
-          setSmsPermissionGranted(true);
-          return;
+          console.log("📋 Permission results:", granted);
+          
+          if (
+            granted["android.permission.RECEIVE_SMS"] === "granted" &&
+            granted["android.permission.READ_SMS"] === "granted"
+          ) {
+            console.log("✅ SMS permissions GRANTED - SMS receiver will work!");
+            console.log("   RECEIVE_SMS: " + granted["android.permission.RECEIVE_SMS"]);
+            console.log("   READ_SMS: " + granted["android.permission.READ_SMS"]);
+            setSmsPermissionGranted(true);
+          } else {
+            console.warn("⚠️ SMS permissions DENIED:");
+            console.warn("   RECEIVE_SMS: " + granted["android.permission.RECEIVE_SMS"]);
+            console.warn("   READ_SMS: " + granted["android.permission.READ_SMS"]);
+            console.warn("   SMS receiver will NOT work - please grant permissions!");
+            Alert.alert(
+              "Permission Required ⚠️",
+              "Please allow SMS permissions for automatic expense tracking from bank messages.\n\nWithout these permissions, the app won't receive SMS.",
+              [{ text: "OK", onPress: requestSmsPermissions }]
+            );
+          }
+        } catch (err) {
+          console.error("❌ Permission request error:", err);
         }
-
-        console.log("🔔 Requesting SMS permissions...");
-        // Request both permissions
-        const permissions = [
-          PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-          PermissionsAndroid.PERMISSIONS.READ_SMS,
-        ];
-
-        const results = await PermissionsAndroid.requestMultiple(permissions, {
-          title: 'SMS Access Required',
-          message: 'This app needs permission to read SMS for automatic expense tracking.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Deny',
-          buttonPositive: 'Allow',
-        });
-
-        console.log("📱 Permission Results:", JSON.stringify(results, null, 2));
-
-        if (
-          results[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] === PermissionsAndroid.RESULTS.GRANTED &&
-          results[PermissionsAndroid.PERMISSIONS.READ_SMS] === PermissionsAndroid.RESULTS.GRANTED
-        ) {
-          console.log('✅ SMS permissions GRANTED - Setting state to true');
-          setSmsPermissionGranted(true);
-        } else {
-          console.log('⚠️ SMS permissions DENIED or NOT ANSWERED');
-          console.log('   RECEIVE_SMS result:', results[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS]);
-          console.log('   READ_SMS result:', results[PermissionsAndroid.PERMISSIONS.READ_SMS]);
-          Alert.alert(
-            'SMS Permission Required',
-            'Please enable SMS permissions in Settings > Apps > [AppName] > Permissions > SMS for SMS-based expense tracking.'
-          );
-        }
-      } catch (err) {
-        console.warn("❌ Permission Error:", err);
+      } else {
+        console.log("ℹ️ Not on Android - SMS receiver not available");
       }
-    }
-  };
+    };
 
-  requestSmsPermissions();
-}, []);
+    requestSmsPermissions();
+  }, []);
 
-// START SMS LISTENER (ONLY AFTER LOGIN & PERMISSIONS)
-useEffect(() => {
-  console.log("📍 SMS Listener Effect - Checking conditions:");
-  console.log("   isLoggedIn:", isLoggedIn);
-  console.log("   smsPermissionGranted:", smsPermissionGranted);
-  console.log("   Current subscription:", smsSubscriptionRef.current ? "EXISTS" : "NULL");
-  
-  if (isLoggedIn && smsPermissionGranted) {
-    // Only start if not already started
-    if (smsSubscriptionRef.current) {
-      console.log("⏸ SMS listener already running");
-      return;
-    }
-    
-    console.log("✅ Both conditions met - Starting SMS listener...");
-    const subscription = startSmsListener();
-    
-    if (subscription) {
-      console.log("✅ SMS listener subscription received:", typeof subscription);
+  // START SMS LISTENER
+  useEffect(() => {
+    if (isLoggedIn && smsPermissionGranted) {
+      if (smsSubscriptionRef.current) return;
+
+      console.log("🚀 Starting SMS Listener...");
+      const subscription = startSmsListener();
+
       smsSubscriptionRef.current = subscription;
-    } else {
-      console.error("❌ SMS listener returned null/undefined");
+
+      return () => {
+        if (smsSubscriptionRef.current) {
+          smsSubscriptionRef.current.remove();
+          smsSubscriptionRef.current = null;
+        }
+      };
     }
-    
-    return () => {
-      console.log("🛑 Cleaning up SMS listener effect...");
-      if (smsSubscriptionRef.current) {
-        console.log("🛑 Removing SMS listener subscription");
-        smsSubscriptionRef.current.remove();
-        smsSubscriptionRef.current = null;
-      }
-    };
-  } else {
-    console.log("⏳ Waiting for conditions - Login:", !!isLoggedIn, "Permissions:", !!smsPermissionGranted);
-    
-    // Clean up if permissions/login changed
-    return () => {
-      if (smsSubscriptionRef.current) {
-        console.log("🛑 Cleaning up subscription due to state change");
-        smsSubscriptionRef.current.remove();
-        smsSubscriptionRef.current = null;
-      }
-    };
-  }
-}, [isLoggedIn, smsPermissionGranted]);
+  }, [isLoggedIn, smsPermissionGranted]);
 
   if (isLoggedIn === null) return null;
 
   return (
     <NavigationContainer>
-  {isLoggedIn ? <DrawerNavigator /> : <AuthNavigator />}
-</NavigationContainer>
+      {isLoggedIn ? <DrawerNavigator /> : <AuthNavigator />}
+    </NavigationContainer>
   );
 }

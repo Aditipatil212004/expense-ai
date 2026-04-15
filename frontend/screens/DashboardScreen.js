@@ -23,7 +23,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
 import API from "../services/api";
-import { testSmsParsing } from "../services/smsListener";
 
 const getCategoryIcon = (category) => {
   const iconMap = {
@@ -334,20 +333,7 @@ export default function DashboardScreen({ navigation }) {
           </TouchableOpacity>
 
           {/* DEBUG: Test SMS Button */}
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={async () => {
-              console.log("🧪 TEST BUTTON PRESSED - Calling testSmsParsing");
-              await testSmsParsing();
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: "#ef444415" }]}>
-              <Ionicons name="alert-circle" size={22} color="#ef4444" />
-            </View>
-            <Text style={styles.actionText}>Test</Text>
-          </TouchableOpacity>
-        </View>
+</View>
 
         {/* SPENDING CHART */}
         {chartData.length > 0 && (

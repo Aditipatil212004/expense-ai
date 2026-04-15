@@ -6,8 +6,6 @@ import { Ionicons } from "@expo/vector-icons";
 export default function SettingsScreen() {
   const [darkMode, setDarkMode] = useState(true);
   const [notifications, setNotifications] = useState(true);
-  const [biometric, setBiometric] = useState(false);
-  const [autoBackup, setAutoBackup] = useState(true);
 
   return (
     <View style={styles.container}>
@@ -53,29 +51,6 @@ export default function SettingsScreen() {
               subtitle="Get alerts for transactions and updates"
               value={notifications}
               onValueChange={setNotifications}
-              hideDivider
-            />
-          </View>
-        </View>
-
-        {/* SECURITY SECTION */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
-          
-          <View style={styles.card}>
-            <SettingItem
-              icon="finger-print"
-              text="Biometric Login"
-              subtitle="Use fingerprint or face ID"
-              value={biometric}
-              onValueChange={setBiometric}
-            />
-            <SettingItem
-              icon="cloud-upload"
-              text="Auto Backup"
-              subtitle="Automatically backup your data"
-              value={autoBackup}
-              onValueChange={setAutoBackup}
               hideDivider
             />
           </View>

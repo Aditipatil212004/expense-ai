@@ -42,32 +42,53 @@ export const startSmsListener = () => {
   try {
     console.log("🔴 SMS Listener starting...");
     console.log("   Using library:", "react-native-android-sms-listener");
+    console.log("   Also listening for native SMSReceiver events...");
     
     let smsReceiveCount = 0;
-    
-    // Add a global listener that logs all SMS
-    const subscription = SmsListener.addListener((message) => {
+    const librarySubscription = SmsListener.addListener((message) => {
       smsReceiveCount++;
-      console.log(`📩 SMS #${smsReceiveCount} RECEIVED`);
-      console.log("===== RAW SMS RECEIVED =====");
+      console.log(`\n📩 SMS #${smsReceiveCount} RECEIVED via library`);
+      console.log("===== RAW SMS RECEIVED FROM LIBRARY =====");
       console.log("   From:", message.originatingAddress);
       console.log("   Body:", message.body);
       console.log("   Timestamp:", message.date);
       console.log("   Raw message object:", JSON.stringify(message, null, 2));
-      console.log("=============================");
-      
-      // Call parse function (don't await it here to prevent blocking)
-      parseAndSendSms(message).catch(err => {
-        console.error("❌ [SMS Callback] Error in parseAndSendSms:", err.message);
+      console.log("=============================\n");
+      parseAndSendSms(message).catch((err) => {
+        console.error("❌ [SMS Library Callback] Error in parseAndSendSms:", err.message);
       });
     });
 
-    console.log("🟢 SMS Listener started successfully");
+    let nativeReceiveCount = 0;
+    const nativeReceiverSubscription = DeviceEventEmitter.addListener("smsReceived", (message) => {
+      nativeReceiveCount++;
+      console.log(`\n📩 SMS #${nativeReceiveCount} RECEIVED via native SMSReceiver`);
+      console.log("===== RAW SMS RECEIVED FROM NATIVE RECEIVER =====");
+      console.log("   From:", message.originatingAddress);
+      console.log("   Body:", message.body);
+      console.log("   Timestamp:", message.date);
+      console.log("   Raw message object:", JSON.stringify(message, null, 2));
+      console.log("==============================================\n");
+      parseAndSendSms(message).catch((err) => {
+        console.error("❌ [Native SMSReceiver] Error in parseAndSendSms:", err.message);
+      });
+    });
+
+    console.log("🟢 SMS Listener started successfully!");
+    console.log("✅ Library listener active (SmsListener)");
+    console.log("✅ Native listener active (SMSReceiver via DeviceEventEmitter)");
     console.log("   Waiting for incoming SMS messages...");
-    console.log("   Subscription ID:", subscription);
-    console.log("   SMS receive count will increment with each message");
-    
-    return subscription;
+    console.log("   Counts - Library:", smsReceiveCount, "Native:", nativeReceiveCount);
+    console.log("   TIP: Use 'Test' button on dashboard to verify parsing works!");
+
+    return {
+      remove: () => {
+        console.log("🛑 Stopping SMS listeners...");
+        librarySubscription?.remove?.();
+        nativeReceiverSubscription?.remove?.();
+        console.log("✅ SMS listeners stopped");
+      },
+    };
   } catch (error) {
     console.error("❌ Failed to start SMS Listener:", error);
     console.error("   Error details:", JSON.stringify(error, null, 2));
@@ -151,16 +172,21 @@ export const parseAndSendSms = async (message) => {
       merchant = words.slice(2, 6).join(" "); // Get a few words from SMS
     }
 
-    // 📅 DATE PARSING (DEFAULT TO TODAY)
-    const dateMatch = body.match(/(?:on|date)\s+([\d\/\-]+)/i);
-    const date = dateMatch
-      ? dateMatch[1]
-      : new Date().toISOString().split("T")[0];
+    // 📅 TIMESTAMP PARSING
+    let smsTimestamp = null;
+    if (message.date) {
+      smsTimestamp = typeof message.date === "number" ? new Date(message.date) : new Date(message.date);
+    }
+    if (!smsTimestamp || Number.isNaN(smsTimestamp.getTime())) {
+      smsTimestamp = new Date();
+    }
+    const smsDateKey = smsTimestamp.toISOString();
 
     // 🧾 PREVENT DUPLICATES
-    const smsHash = `${body}_${originatingAddress}_${date}`;
+    const smsHash = `${body}_${originatingAddress}_${smsDateKey}`;
     const lastSms = await AsyncStorage.getItem("last_sms_hash");
-    
+    console.log("🔁 Duplicate check:", { smsHash, lastSms });
+
     if (lastSms === smsHash) {
       console.log("⚠️ Duplicate SMS ignored");
       return;
