@@ -1,15 +1,16 @@
 const mongoose = require("mongoose");
 
-const expenseSchema = new mongoose.Schema(
+const transactionSchema = new mongoose.Schema(
   {
     amount: { type: Number, required: true },
-    category: { type: String, default: "Others" },
-    userId: { type: String, required: true },
     type: {
       type: String,
-      enum: ["credit", "debit"],
-      default: "debit",
+      enum: ["income", "expense"],
+      required: true,
     },
+    category: { type: String, default: "Others" },
+    description: { type: String, default: "" },
+    userId: { type: String, required: true },
     merchant: { type: String, default: "Unknown" },
     source: { type: String, enum: ["manual", "notification"], default: "manual" },
     sourceText: { type: String },
@@ -17,4 +18,4 @@ const expenseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Expense", expenseSchema);
+module.exports = mongoose.model("Transaction", transactionSchema);

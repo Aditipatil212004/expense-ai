@@ -1,4 +1,5 @@
-const Expense = require("../models/Expense");
+const Transaction = require("../models/Transaction");
+const User = require("../models/User");
 
 const CATEGORY_KEYWORDS = {
   Food: ["swiggy", "zomato", "restaurant", "cafe", "food", "dining", "pizza"],
@@ -8,21 +9,80 @@ const CATEGORY_KEYWORDS = {
   Entertainment: ["netflix", "spotify", "movie", "bookmyshow", "gaming", "entertainment"],
 };
 
-const CREDIT_KEYWORDS = ["credited", "deposit", "received", "refund", "salary", "cashback"];
-const DEBIT_KEYWORDS = ["debited", "spent", "paid", "purchase", "withdrawn", "sent", "dr"];
+const INCOME_RULES = [
+  { pattern: /\bcredited\b/i, score: 4 },
+  { pattern: /\bcredit\b/i, score: 2 },
+  { pattern: /\breceived\b/i, score: 4 },
+  { pattern: /\bdeposit(?:ed)?\b/i, score: 4 },
+  { pattern: /\bsalary\b/i, score: 5 },
+  { pattern: /\bcashback\b/i, score: 5 },
+  { pattern: /\brefund(?:ed)?\b/i, score: 5 },
+  { pattern: /\breversal\b/i, score: 4 },
+  { pattern: /\binterest\b/i, score: 4 },
+  { pattern: /\breward\b/i, score: 3 },
+  { pattern: /\badded to\b/i, score: 3 },
+  { pattern: /\btransferred from\b/i, score: 3 },
+  { pattern: /\breceived from\b/i, score: 4 },
+  { pattern: /\bdeposited in\b/i, score: 4 },
+  { pattern: /\bcr\b/i, score: 2 },
+];
+
+const EXPENSE_RULES = [
+  { pattern: /\bdebited\b/i, score: 5 },
+  { pattern: /\bdebit\b/i, score: 2 },
+  { pattern: /\bspent\b/i, score: 4 },
+  { pattern: /\bpaid\b/i, score: 5 },
+  { pattern: /\bpurchase\b/i, score: 4 },
+  { pattern: /\bwithdrawn\b/i, score: 5 },
+  { pattern: /\bsent\b/i, score: 4 },
+  { pattern: /\btransferred to\b/i, score: 4 },
+  { pattern: /\bauto[- ]?debit\b/i, score: 5 },
+  { pattern: /\bbill paid\b/i, score: 5 },
+  { pattern: /\bcharged\b/i, score: 4 },
+  { pattern: /\bupi\b.*\bto\b/i, score: 3 },
+  { pattern: /\bdr\b/i, score: 2 },
+];
+
+const INCOME_CATEGORY_RULES = [
+  { category: "Salary", keywords: ["salary", "payroll", "bonus", "incentive"] },
+  { category: "Refund", keywords: ["refund", "reversal", "reversed"] },
+  { category: "Cashback", keywords: ["cashback", "cash back", "reward"] },
+  { category: "Interest", keywords: ["interest"] },
+  { category: "Transfer", keywords: ["received from", "transferred from", "imps", "neft", "rtgs", "upi"] },
+];
+
+function scoreRules(message, rules) {
+  return rules.reduce((score, rule) => {
+    return rule.pattern.test(message) ? score + rule.score : score;
+  }, 0);
+}
 
 function detectType(message) {
+  const incomeScore = scoreRules(message, INCOME_RULES);
+  const expenseScore = scoreRules(message, EXPENSE_RULES);
   const normalized = message.toLowerCase();
 
-  if (CREDIT_KEYWORDS.some((word) => normalized.includes(word))) {
-    return "credit";
+  if (/\brefund\b/.test(normalized) || /\bcashback\b/.test(normalized)) {
+    return "income";
   }
 
-  if (DEBIT_KEYWORDS.some((word) => normalized.includes(word))) {
-    return "debit";
+  if (incomeScore > expenseScore) {
+    return "income";
   }
 
-  return "debit";
+  if (expenseScore > incomeScore) {
+    return "expense";
+  }
+
+  if (/\bfrom\b/.test(normalized) && /\breceived\b|\bcredited\b|\bdeposit(?:ed)?\b/.test(normalized)) {
+    return "income";
+  }
+
+  if (/\bto\b/.test(normalized) && /\bpaid\b|\bsent\b|\bdebited\b/.test(normalized)) {
+    return "expense";
+  }
+
+  return "expense";
 }
 
 function extractAmount(message) {
@@ -44,11 +104,17 @@ function extractAmount(message) {
 }
 
 function detectCategory(message, type) {
-  if (type === "credit") {
+  const normalized = message.toLowerCase();
+
+  if (type === "income") {
+    for (const rule of INCOME_CATEGORY_RULES) {
+      if (rule.keywords.some((word) => normalized.includes(word))) {
+        return rule.category;
+      }
+    }
+
     return "Income";
   }
-
-  const normalized = message.toLowerCase();
 
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some((word) => normalized.includes(word))) {
@@ -60,41 +126,91 @@ function detectCategory(message, type) {
 }
 
 function extractMerchant(message) {
-  const atMatch = message.match(/(?:at|to)\s+([a-zA-Z0-9&.\-\s]{2,40})/i);
+  const merchantPatterns = [
+    /(?:at|to|from|by|via)\s+([a-zA-Z0-9&.\-_\s]{2,40})(?=\s+(?:on|for|ref|utr|avl|available|bal|ending|txn|trxn|upi|neft|imps|rtgs|received|credited|debited|paid|sent)\b|$)/i,
+    /merchant\s+([a-zA-Z0-9&.\-_\s]{2,40})/i,
+  ];
 
-  if (!atMatch) {
-    return "Unknown";
+  for (const pattern of merchantPatterns) {
+    const match = message.match(pattern);
+    if (match?.[1]) {
+      const cleanedMerchant = match[1]
+        .trim()
+        .replace(/\s{2,}/g, " ")
+        .replace(/[.,]$/, "")
+        .replace(/\b(a\/c|acct|account|xx[\w-]*)\b.*$/i, "")
+        .trim();
+
+      if (cleanedMerchant && cleanedMerchant.length >= 2) {
+        return cleanedMerchant;
+      }
+    }
   }
 
-  return atMatch[1].trim().replace(/[.\n].*$/, "");
+  return typeSafeMerchantFallback(message);
 }
 
-// ➕ ADD EXPENSE
-exports.addExpense = async (req, res) => {
-  try {
-    const { amount, category, merchant, sourceText } = req.body;
+function typeSafeMerchantFallback(message) {
+  const normalizedWords = message
+    .split(/\s+/)
+    .map((word) => word.replace(/[^\w&.-]/g, ""))
+    .filter(Boolean)
+    .filter((word) => !/^(rs|inr|upi|acct|account|a\/c|avl|bal|utr|txn|trxn)$/i.test(word))
+    .filter((word) => !/\d{4,}/.test(word));
 
-    const expense = await Expense.create({
-      amount,
-      category: category || "Others",
+  return normalizedWords.slice(0, 3).join(" ") || "Unknown";
+}
+
+// Update user balance based on all transactions
+async function updateUserBalance(userId) {
+  try {
+    const transactions = await Transaction.find({ userId });
+    
+    const balance = transactions.reduce((total, tx) => {
+      return tx.type === "income" ? total + tx.amount : total - tx.amount;
+    }, 0);
+
+    await User.findByIdAndUpdate(userId, { balance });
+    console.log(`✅ Updated balance for user ${userId}: ₹${balance}`);
+  } catch (err) {
+    console.error("❌ Error updating balance:", err.message);
+  }
+}
+
+// ➕ ADD TRANSACTION
+exports.addTransaction = async (req, res) => {
+  try {
+    const { amount, type, category, description, merchant, sourceText } = req.body;
+
+    if (!amount || !type || !["income", "expense"].includes(type)) {
+      return res.status(400).json({ message: "Amount and valid type (income/expense) are required" });
+    }
+
+    const transaction = await Transaction.create({
+      amount: Number(amount),
+      type,
+      category: category || (type === "income" ? "Income" : "Others"),
+      description: description || "",
       userId: req.user.id,
-      type: "debit",
-      merchant: merchant || "Manual",
+      merchant: merchant || (type === "income" ? "Income Source" : "Manual"),
       sourceText,
       source: "manual",
     });
 
-    res.json(expense);
+    // Update user balance
+    await updateUserBalance(req.user.id);
+
+    res.json(transaction);
   } catch (err) {
-    console.error("Error adding expense:", err.message);
-    res.status(500).json({ message: "Error adding expense" });
+    console.error("Error adding transaction:", err.message);
+    res.status(500).json({ message: "Error adding transaction" });
   }
 };
 
-// 📥 GET EXPENSES
-exports.getExpenses = async (req, res) => {
+// 📥 GET TRANSACTIONS
+exports.getTransactions = async (req, res) => {
   try {
-    console.log("📥 GET /expenses called");
+    console.log("📥 GET /transactions called");
     console.log("   req.user:", req.user);
     console.log("   req.user.id:", req.user?.id);
     
@@ -103,18 +219,18 @@ exports.getExpenses = async (req, res) => {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
-    console.log("🔍 Finding expenses for userId:", req.user.id);
-    const expenses = await Expense.find({
+    console.log("🔍 Finding transactions for userId:", req.user.id);
+    const transactions = await Transaction.find({
       userId: req.user.id,
     }).sort({ createdAt: -1 });
 
-    console.log("✅ Found", expenses.length, "expenses");
-    res.json(expenses);
+    console.log("✅ Found", transactions.length, "transactions");
+    res.json(transactions);
   } catch (err) {
-    console.error("❌ Error getting expenses:");
+    console.error("❌ Error getting transactions:");
     console.error("   Message:", err.message);
     console.error("   Stack:", err.stack);
-    res.status(500).json({ message: "Error fetching expenses", error: err.message });
+    res.status(500).json({ message: "Error fetching transactions", error: err.message });
   }
 };
 
@@ -150,25 +266,29 @@ exports.ingestNotification = async (req, res) => {
 
     console.log("📊 Extracted data:", { amount, type, category, merchant });
 
-    const expenseData = {
+    const transactionData = {
       amount,
-      category,
-      userId: req.user.id,
       type,
+      category,
+      description: message, // Use the full message as description
+      userId: req.user.id,
       merchant,
       sourceText: message,
       source: "notification",
     };
 
-    console.log("💾 Creating expense:", expenseData);
+    console.log("💾 Creating transaction:", transactionData);
 
-    const expense = await Expense.create(expenseData);
+    const transaction = await Transaction.create(transactionData);
 
-    console.log("✅ Expense created:", expense);
+    console.log("✅ Transaction created:", transaction);
+
+    // Update user balance
+    await updateUserBalance(req.user.id);
 
     return res.status(201).json({
       message: "Notification processed",
-      transaction: expense,
+      transaction: transaction,
     });
   } catch (err) {
     console.error("❌ INGEST ERROR:", err.message, err.stack);
@@ -176,29 +296,30 @@ exports.ingestNotification = async (req, res) => {
   }
 };
 
-// 📈 CREDIT/DEBIT + SPENDING SUMMARY
-exports.getNotificationSummary = async (req, res) => {
+// 📈 INCOME/EXPENSE + SPENDING SUMMARY
+exports.getTransactionSummary = async (req, res) => {
   try {
-    const transactions = await Expense.find({ userId: req.user.id });
+    const transactions = await Transaction.find({ userId: req.user.id });
 
-    const totalCredited = transactions
-      .filter((tx) => tx.type === "credit")
+    const totalIncome = transactions
+      .filter((tx) => tx.type === "income")
       .reduce((sum, tx) => sum + tx.amount, 0);
 
-    const totalDebited = transactions
-      .filter((tx) => tx.type !== "credit")
+    const totalExpense = transactions
+      .filter((tx) => tx.type === "expense")
       .reduce((sum, tx) => sum + tx.amount, 0);
 
     const spendingByCategory = transactions
-      .filter((tx) => tx.type !== "credit")
+      .filter((tx) => tx.type === "expense")
       .reduce((acc, tx) => {
         acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
         return acc;
       }, {});
 
     return res.json({
-      totalCredited,
-      totalDebited,
+      totalIncome,
+      totalExpense,
+      balance: totalIncome - totalExpense,
       spendingByCategory,
       transactionCount: transactions.length,
     });
