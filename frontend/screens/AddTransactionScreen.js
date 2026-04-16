@@ -11,48 +11,51 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import API from "../services/api";
+import { createTransaction } from "../services/api";
 
 const categories = ["Food", "Travel", "Shopping", "Bills", "Entertainment"];
-const methods = ["UPI", "Credit Card", "Debit Card", "Cash", "Net Banking"];
+const incomeCategories = ["Salary", "Freelance", "Business", "Investment", "Other Income"];
 
-export default function AddExpenseScreen({ navigation }) {
+export default function AddTransactionScreen({ navigation }) {
   const [amount, setAmount] = useState("");
-  const [merchant, setMerchant] = useState("");
+  const [type, setType] = useState("expense");
+  const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Food");
-  const [method, setMethod] = useState("UPI");
+  const [merchant, setMerchant] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const addExpense = async () => {
+  const availableCategories = type === "income" ? incomeCategories : categories;
+
+  const addTransaction = async () => {
     if (!amount || isNaN(amount)) {
       return Alert.alert("Invalid Amount", "Enter valid amount");
     }
 
-    if (!merchant.trim()) {
-      return Alert.alert("Missing Merchant", "Enter merchant name");
+    if (!description.trim()) {
+      return Alert.alert("Missing Description", "Enter transaction description");
     }
 
     try {
       setLoading(true);
 
-      await API.post("/expenses", {
+      await createTransaction({
         amount: Number(amount),
-        merchant,
+        type,
         category,
-        method,
-        type: "debit",
-        date: new Date(),
+        description,
+        merchant: merchant || (type === "income" ? "Income Source" : "Manual Entry"),
       });
 
       setAmount("");
+      setDescription("");
       setMerchant("");
-      setCategory("Food");
-      setMethod("UPI");
+      setCategory(type === "income" ? "Salary" : "Food");
+      setType("expense");
 
       navigation.navigate("Dashboard");
     } catch (err) {
       console.log(err);
-      Alert.alert("Error", "Failed to add expense");
+      Alert.alert("Error", "Failed to add transaction");
     } finally {
       setLoading(false);
     }
@@ -66,7 +69,7 @@ export default function AddExpenseScreen({ navigation }) {
         <View style={styles.header}>
           <View>
             <Text style={styles.subtitle}>New Transaction</Text>
-            <Text style={styles.title}>Add Expense</Text>
+            <Text style={styles.title}>Add {type === "income" ? "Income" : "Expense"}</Text>
           </View>
           <TouchableOpacity 
             style={styles.closeButton}
@@ -74,6 +77,41 @@ export default function AddExpenseScreen({ navigation }) {
           >
             <Ionicons name="close" size={22} color="#94a3b8" />
           </TouchableOpacity>
+        </View>
+
+        {/* TYPE SELECTION */}
+        <View style={styles.card}>
+          <Text style={styles.label}>Transaction Type</Text>
+          <View style={styles.typeGrid}>
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                type === "expense" && styles.activeType,
+              ]}
+              onPress={() => {
+                setType("expense");
+                setCategory("Food");
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="remove-circle" size={24} color={type === "expense" ? "#fff" : "#ef4444"} />
+              <Text style={type === "expense" ? styles.activeTypeText : styles.typeText}>Expense</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                type === "income" && styles.activeType,
+              ]}
+              onPress={() => {
+                setType("income");
+                setCategory("Salary");
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add-circle" size={24} color={type === "income" ? "#fff" : "#22c55e"} />
+              <Text style={type === "income" ? styles.activeTypeText : styles.typeText}>Income</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* AMOUNT CARD */}
@@ -92,12 +130,26 @@ export default function AddExpenseScreen({ navigation }) {
           </View>
         </View>
 
-        {/* MERCHANT CARD */}
+        {/* DESCRIPTION CARD */}
         <View style={styles.card}>
-          <Text style={styles.label}>Merchant Name</Text>
+          <Text style={styles.label}>Description</Text>
           <TextInput
             style={styles.input}
-            placeholder="Enter merchant or store name"
+            placeholder="Enter transaction description"
+            placeholderTextColor="#475569"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={2}
+          />
+        </View>
+
+        {/* MERCHANT CARD */}
+        <View style={styles.card}>
+          <Text style={styles.label}>{type === "income" ? "Source" : "Merchant"} (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={`Enter ${type === "income" ? "income source" : "merchant or store name"}`}
             placeholderTextColor="#475569"
             value={merchant}
             onChangeText={setMerchant}
@@ -275,6 +327,45 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 15,
     fontWeight: "500",
+  },
+
+  typeGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  typeButton: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#334155",
+  },
+
+  activeType: {
+    backgroundColor: "#8b5cf6",
+    borderColor: "#8b5cf6",
+    shadowColor: "#8b5cf6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
+  typeText: {
+    color: "#cbd5e1",
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+
+  activeTypeText: {
+    color: "#fff",
+    fontWeight: "700",
   },
 
   chipGrid: {

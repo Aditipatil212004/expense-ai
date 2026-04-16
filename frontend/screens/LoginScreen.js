@@ -1,22 +1,32 @@
 // javascript
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import InputField from "../components/InputField";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "../services/api";
+import { clearSession, setSession } from "../services/authSession";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const login = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
+      Alert.alert("Missing Details", "Please enter your email and password.");
+      return;
+    }
+
     try {
+      setLoading(true);
       console.log("Calling API...");
+      await clearSession();
 
       const res = await API.post("/auth/login", {
-        email,
+        email: normalizedEmail,
         password,
       });
 
@@ -24,12 +34,16 @@ export default function LoginScreen({ navigation }) {
 
       const token = res.data.token;
 
-      await AsyncStorage.setItem("token", token);
-      await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
+      await setSession({
+        token,
+        user: res.data.user,
+      });
 
     } catch (err) {
       console.log("LOGIN ERROR:", err.response?.data || err.message);
-      alert("Login failed");
+      Alert.alert("Login Failed", err.response?.data?.message || "Unable to sign in.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,6 +90,7 @@ export default function LoginScreen({ navigation }) {
                 placeholder="Enter your email"
                 value={email}
                 onChangeText={setEmail}
+                keyboardType="email-address"
               />
             </View>
 
@@ -97,14 +112,15 @@ export default function LoginScreen({ navigation }) {
             <TouchableOpacity 
               activeOpacity={0.9}
               onPress={login}
+              disabled={loading}
             >
               <LinearGradient
                 colors={["#8b5cf6", "#7c3aed"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.button}
+                style={[styles.button, loading && styles.buttonDisabled]}
               >
-                <Text style={styles.buttonText}>Sign In</Text>
+                <Text style={styles.buttonText}>{loading ? "Signing In..." : "Sign In"}</Text>
                 <Ionicons name="arrow-forward" size={20} color="#fff" />
               </LinearGradient>
             </TouchableOpacity>
@@ -274,6 +290,10 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
     gap: 8,
+  },
+
+  buttonDisabled: {
+    opacity: 0.7,
   },
 
   buttonText: {

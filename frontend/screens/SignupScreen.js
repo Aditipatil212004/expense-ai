@@ -1,34 +1,59 @@
 // javascript
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import InputField from "../components/InputField";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "../services/api";
+import { setSession } from "../services/authSession";
 
 export default function SignupScreen({ navigation }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const signup = async () => {
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedName || !normalizedEmail || !password) {
+      Alert.alert("Missing Details", "Please enter your name, email, and password.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Weak Password", "Password must be at least 6 characters.");
+      return;
+    }
+
     try {
+      setLoading(true);
       const res = await API.post("/auth/signup", {
-        name,
-        email,
+        name: normalizedName,
+        email: normalizedEmail,
         password,
       });
 
       const token = res.data.token;
 
-      await AsyncStorage.setItem("token", token);
-      await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
-
-      navigation.replace("LoginScreen");
+      await setSession({
+        token,
+        user: res.data.user,
+      });
+      setName("");
+      setEmail("");
+      setPassword("");
     } catch (err) {
       console.log(err.response?.data || err.message);
-      alert("Signup failed");
+      Alert.alert("Signup Failed", err.response?.data?.message || "Unable to create your account.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,6 +100,7 @@ export default function SignupScreen({ navigation }) {
                 placeholder="Enter your full name"
                 value={name}
                 onChangeText={setName}
+                autoCapitalize="words"
               />
             </View>
 
@@ -85,6 +111,7 @@ export default function SignupScreen({ navigation }) {
                 placeholder="Enter your email"
                 value={email}
                 onChangeText={setEmail}
+                keyboardType="email-address"
               />
             </View>
 
@@ -109,14 +136,15 @@ export default function SignupScreen({ navigation }) {
             <TouchableOpacity 
               activeOpacity={0.9}
               onPress={signup}
+              disabled={loading}
             >
               <LinearGradient
                 colors={["#8b5cf6", "#7c3aed"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.button}
+                style={[styles.button, loading && styles.buttonDisabled]}
               >
-                <Text style={styles.buttonText}>Create Account</Text>
+                <Text style={styles.buttonText}>{loading ? "Creating..." : "Create Account"}</Text>
                 <Ionicons name="arrow-forward" size={20} color="#fff" />
               </LinearGradient>
             </TouchableOpacity>
@@ -293,6 +321,10 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
     gap: 8,
+  },
+
+  buttonDisabled: {
+    opacity: 0.7,
   },
 
   buttonText: {

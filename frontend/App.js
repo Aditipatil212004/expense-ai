@@ -6,10 +6,13 @@ import { PermissionsAndroid, Platform, Alert } from "react-native";
 import AuthNavigator from "./navigation/AuthNavigator";
 import DrawerNavigator from "./navigation/DrawerNavigator";
 import { startSmsListener, testBackendConnection } from "./services/smsListener";
+import { parseAndSendNotification } from "./services/expenseIngestion";
 import {
   isNotificationServiceEnabled,
   subscribeToNotifications,
 } from "./services/notificationListener";
+import { getTransactions } from "./services/api";
+import { getStoredToken, subscribeToAuthState } from "./services/authSession";
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null);
@@ -20,15 +23,37 @@ export default function App() {
 
   // LOGIN CHECK
   useEffect(() => {
-    const checkLogin = async () => {
-      const token = await AsyncStorage.getItem("token");
-      setIsLoggedIn(!!token);
+    let isMounted = true;
+
+    const syncAuthState = async () => {
+      const token = await getStoredToken();
+
+      if (!token) {
+        if (isMounted) setIsLoggedIn(false);
+        return;
+      }
+
+      try {
+        // Verify stored token before enabling background listeners.
+        await getTransactions({ skipSessionExpiredAlert: true });
+        if (isMounted) setIsLoggedIn(true);
+      } catch (error) {
+        if (isMounted) setIsLoggedIn(false);
+      }
     };
+    
+    syncAuthState();
 
-    checkLogin();
+    const subscription = subscribeToAuthState((loggedIn) => {
+      if (isMounted) {
+        setIsLoggedIn(Boolean(loggedIn));
+      }
+    });
 
-    const interval = setInterval(checkLogin, 2000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
   }, []);
 
   // TEST BACKEND
@@ -120,10 +145,13 @@ export default function App() {
     if (isLoggedIn && notificationAccessGranted) {
       if (notificationSubscriptionRef.current) return;
 
-      const subscription = subscribeToNotifications((notification) => {
+      const subscription = subscribeToNotifications(async (notification) => {
         console.log("Notification received:", notification);
-        // TODO: Process notification and send to backend
-        // You can add logic here to parse and send to /expenses/notifications/ingest
+        try {
+          await parseAndSendNotification(notification);
+        } catch (error) {
+          console.error("❌ Failed to process notification:", error.message);
+        }
       });
 
       notificationSubscriptionRef.current = subscription;
@@ -143,4 +171,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-

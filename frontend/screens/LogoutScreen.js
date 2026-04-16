@@ -1,11 +1,10 @@
 import { useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { clearSession } from "../services/authSession";
 
 export default function LogoutScreen() {
   useEffect(() => {
     const logout = async () => {
-      await AsyncStorage.removeItem("token");
-      await AsyncStorage.removeItem("user"); // ✅ ADD THIS
+      await clearSession();
     };
 
     logout();

@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 
 module.exports = (req, res, next) => {
+  const jwtSecret = process.env.JWT_SECRET;
+
   console.log("🔐 Auth Middleware:");
   console.log("   Headers:", Object.keys(req.headers));
   
@@ -23,9 +25,14 @@ module.exports = (req, res, next) => {
     return res.status(401).json({ message: "Token missing" });
   }
 
+  if (!jwtSecret) {
+    console.error("❌ JWT_SECRET is not configured");
+    return res.status(500).json({ message: "Server configuration error" });
+  }
+
   try {
     console.log("   Verifying JWT...");
-    const decoded = jwt.verify(token, "secret");
+    const decoded = jwt.verify(token, jwtSecret);
     console.log("   ✅ JWT verified!");
     console.log("   Decoded user:", decoded);
     req.user = decoded;

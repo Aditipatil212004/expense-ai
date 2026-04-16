@@ -22,7 +22,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
-import API from "../services/api";
+import { getTransactions } from "../services/api";
 import { openNotificationListenerSettings } from "../services/notificationListener"; 
 
 const getCategoryIcon = (category) => {
@@ -73,12 +73,12 @@ export default function DashboardScreen({ navigation }) {
 
   const getExpenses = useCallback(async () => {
     try {
-      console.log("📥 Fetching expenses from API...");
-      const res = await API.get("/expenses");
-      console.log("✅ Expenses fetched:", res.data?.length || 0, "items");
+      console.log("📥 Fetching transactions from API...");
+      const res = await getTransactions();
+      console.log("✅ Transactions fetched:", res.data?.length || 0, "items");
       setExpenses(res.data || []);
     } catch (err) {
-      console.error("❌ Error fetching expenses:");
+      console.error("❌ Error fetching transactions:");
       console.error("   Message:", err.message);
       console.error("   Status:", err.response?.status);
       console.error("   Data:", err.response?.data);
@@ -91,29 +91,15 @@ export default function DashboardScreen({ navigation }) {
     
     const handleSmsExpenseAdded = async () => {
       console.log("🔔 Dashboard: SMS event received! Starting refresh...");
-      console.log("   Current expenses count:", expenses.length);
       
       // Add delay to ensure backend has saved
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      console.log("📡 Fetching updated expenses from API after 1 second delay...");
       try {
-        const res = await API.get("/expenses");
-        console.log("✅ API Response received");
-        console.log("   Response data type:", typeof res.data);
-        console.log("   Response data length:", res.data?.length);
-        console.log("   Full response:", JSON.stringify(res.data, null, 2));
-        
-        if (res.data && Array.isArray(res.data)) {
-          console.log("🔄 Updating state with", res.data.length, "expenses");
-          setExpenses(res.data);
-          console.log("✅ State updated");
-        } else {
-          console.error("❌ Invalid response format");
-        }
+        console.log("📡 Refreshing dashboard transactions after auto-ingest...");
+        await getExpenses();
       } catch (err) {
         console.error("❌ Failed to fetch expenses:", err.message);
-        console.error("   Error details:", JSON.stringify(err, null, 2));
       }
     };
 
@@ -122,7 +108,7 @@ export default function DashboardScreen({ navigation }) {
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [getExpenses]);
 
   useFocusEffect(
     useCallback(() => {
@@ -131,15 +117,15 @@ export default function DashboardScreen({ navigation }) {
   );
 
   const total = expenses.reduce((sum, e) => {
-    return e.type === "credit" ? sum + e.amount : sum - e.amount;
+    return e.type === "income" ? sum + e.amount : sum - e.amount;
   }, 0);
 
-  const totalIncome = expenses.filter(e => e.type === "credit").reduce((sum, e) => sum + e.amount, 0);
-  const totalExpense = expenses.filter(e => e.type === "debit").reduce((sum, e) => sum + e.amount, 0);
+  const totalIncome = expenses.filter(e => e.type === "income").reduce((sum, e) => sum + e.amount, 0);
+  const totalExpense = expenses.filter(e => e.type === "expense").reduce((sum, e) => sum + e.amount, 0);
 
   const categoryMap = {};
   expenses
-    .filter((e) => e.type === "debit")
+    .filter((e) => e.type === "expense")
     .forEach((e) => {
       categoryMap[e.category] = (categoryMap[e.category] || 0) + e.amount;
     });
@@ -169,16 +155,16 @@ export default function DashboardScreen({ navigation }) {
               <Ionicons name="storefront-outline" size={12} color="#64748b" />
               <Text style={styles.transactionMerchant}>{item.merchant || "Unknown"}</Text>
               <View style={styles.metaDot} />
-              <Text style={styles.transactionMethod}>{item.method}</Text>
+              <Text style={styles.transactionType}>{item.type === "income" ? "Income" : "Expense"}</Text>
             </View>
           </View>
 
           <View style={styles.transactionAmountContainer}>
-            <Text style={[styles.transactionAmount, item.type === "credit" && styles.creditAmount]}>
-              {item.type === "credit" ? "+" : "-"}₹{item.amount.toLocaleString()}
+            <Text style={[styles.transactionAmount, item.type === "income" && styles.incomeAmount]}>
+              {item.type === "income" ? "+" : "-"}₹{item.amount.toLocaleString()}
             </Text>
             <Text style={styles.transactionDate}>
-              {new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {new Date(item.createdAt || item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </Text>
           </View>
         </View>
@@ -202,7 +188,7 @@ export default function DashboardScreen({ navigation }) {
       </Text>
       <TouchableOpacity 
         activeOpacity={0.9}
-        onPress={() => navigation.navigate("AddExpense")}
+        onPress={() => navigation.navigate("AddTransaction")}
       >
         <LinearGradient
           colors={["#8b5cf6", "#7c3aed"]}
@@ -257,7 +243,7 @@ export default function DashboardScreen({ navigation }) {
             end={{ x: 1, y: 1 }}
             style={styles.balanceCard}
           >
-            <View style={styles.balanceOverlay} />
+            <View style={styles.balanceOverlay}></View>
             
             <View style={styles.balanceTop}>
               <View>
@@ -303,7 +289,7 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.quickActions}>
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => navigation.navigate("AddExpense")}
+            onPress={() => navigation.navigate("AddTransaction")}
             activeOpacity={0.7}
           >
             <View style={[styles.actionIcon, { backgroundColor: "#8b5cf615" }]}>
@@ -365,8 +351,7 @@ export default function DashboardScreen({ navigation }) {
               <Text style={styles.actionText}>Enable{'\n'}Notifications</Text>
             </TouchableOpacity>
           )}
-          
-</View>
+        </View>
 
         {/* SPENDING CHART */}
         {chartData.length > 0 && (
@@ -808,7 +793,7 @@ notificationAccessSubtext: {
     marginHorizontal: 6,
   },
 
-  transactionMethod: {
+  transactionType: {
     color: "#64748b",
     fontSize: 12,
     fontWeight: "600",
@@ -825,7 +810,7 @@ notificationAccessSubtext: {
     marginBottom: 4,
   },
 
-  creditAmount: {
+  incomeAmount: {
     color: "#22c55e",
   },
 

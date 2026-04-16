@@ -4,14 +4,14 @@ import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import API from "../services/api";
+import { getTransactions } from "../services/api";
 
 export default function InsightsScreen() {
   const [expenses, setExpenses] = useState([]);
 
   const fetchData = async () => {
     try {
-      const res = await API.get("/expenses");
+      const res = await getTransactions();
       setExpenses(res.data || []);
     } catch (err) {
       console.log(err);
@@ -24,8 +24,8 @@ export default function InsightsScreen() {
     }, [])
   );
 
-  const spentList = expenses.filter((e) => e.type === "debit");
-  const receivedList = expenses.filter((e) => e.type === "credit");
+  const spentList = expenses.filter((e) => e.type === "expense");
+  const receivedList = expenses.filter((e) => e.type === "income");
 
   const totalSpent = spentList.reduce((sum, e) => sum + e.amount, 0);
   const totalReceived = receivedList.reduce((sum, e) => sum + e.amount, 0);

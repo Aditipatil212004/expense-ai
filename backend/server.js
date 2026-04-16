@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const connectDB = require("./config/db");
 const app = express();
 
@@ -10,8 +11,11 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/expenses", require("./routes/expenseRoutes"));
+app.use("/api/transactions", require("./routes/transactionRoutes"));
 app.use("/api/budgets", require("./routes/budgetRoutes"));
+
+// Keep backward compatibility
+app.use("/api/expenses", require("./routes/transactionRoutes"));
 
 app.get("/", (req, res) => {
   res.send("API Running 🚀");

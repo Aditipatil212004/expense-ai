@@ -1,7 +1,15 @@
 import { View, TextInput, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function InputField({ icon, placeholder, secure, value, onChangeText }) {
+export default function InputField({
+  icon,
+  placeholder,
+  secure,
+  value,
+  onChangeText,
+  autoCapitalize = "none",
+  keyboardType = "default",
+}) {
   return (
     <View style={styles.container}>
       <Ionicons name={icon} size={20} color="#8b5cf6" style={styles.icon} />
@@ -11,6 +19,8 @@ export default function InputField({ icon, placeholder, secure, value, onChangeT
         secureTextEntry={secure}
         value={value}
         onChangeText={onChangeText}
+        autoCapitalize={autoCapitalize}
+        keyboardType={keyboardType}
         style={styles.input}
       />
     </View>

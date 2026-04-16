@@ -2,7 +2,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
 import DashboardScreen from "../screens/DashboardScreen";
-import AddExpenseScreen from "../screens/AddExpenseScreen";
+import AddTransactionScreen from "../screens/AddTransactionScreen";
 import BudgetScreen from "../screens/BudgetScreen";
 import InsightsScreen from "../screens/InsightsScreen";
 
@@ -18,7 +18,7 @@ export default function MainTabs() {
           let iconName;
 
           if (route.name === "Dashboard") iconName = "home";
-          else if (route.name === "AddExpense") iconName = "add-circle";
+          else if (route.name === "AddTransaction") iconName = "add-circle";
           else if (route.name === "Budget") iconName = "wallet";
           else if (route.name === "Insights") iconName = "pie-chart";
 
@@ -33,7 +33,7 @@ export default function MainTabs() {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="AddExpense" component={AddExpenseScreen} />
+      <Tab.Screen name="AddTransaction" component={AddTransactionScreen} />
       <Tab.Screen name="Budget" component={BudgetScreen} />
       <Tab.Screen name="Insights" component={InsightsScreen} />
     </Tab.Navigator>

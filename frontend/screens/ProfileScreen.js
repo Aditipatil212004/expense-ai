@@ -12,6 +12,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { clearSession } from "../services/authSession";
 
 export default function ProfileScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -36,8 +37,7 @@ export default function ProfileScreen({ navigation }) {
         {
           text: "Logout",
           onPress: async () => {
-            await AsyncStorage.removeItem("token");
-            await AsyncStorage.removeItem("user");
+            await clearSession();
 
             navigation.reset({
               index: 0,

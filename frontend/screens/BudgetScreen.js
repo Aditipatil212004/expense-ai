@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import API from "../services/api";
+import API, { getTransactions } from "../services/api";
 
 export default function BudgetScreen() {
   const [budgets, setBudgets] = useState([]);
@@ -31,7 +31,7 @@ export default function BudgetScreen() {
 
   const getExpenses = async () => {
     try {
-      const res = await API.get("/expenses");
+      const res = await getTransactions();
       setExpenses(res.data || []);
     } catch (err) {
       console.log(err);
@@ -49,11 +49,13 @@ export default function BudgetScreen() {
 
   const getSpent = (category) => {
     return expenses
-      .filter((e) => e.category === category)
+      .filter((e) => e.type === "expense" && e.category === category)
       .reduce((sum, e) => sum + e.amount, 0);
   };
 
-  const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalSpent = expenses
+    .filter((e) => e.type === "expense")
+    .reduce((sum, e) => sum + e.amount, 0);
   const totalBudget = budgets.reduce((sum, b) => sum + b.limit, 0);
 
   const addBudget = async () => {
