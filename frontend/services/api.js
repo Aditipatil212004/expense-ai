@@ -47,8 +47,8 @@ API.interceptors.response.use(
       
       // Show alert and redirect to login
       Alert.alert(
-        "Session Expired",
-        "Your session has expired. Please log in again.",
+        "Error",
+        "Something Went Wrong,please try again",
         [
           {
             text: "OK",

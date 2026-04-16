@@ -2,7 +2,6 @@
 import React, {
   useState,
   useEffect,
-  useRef,
   useCallback,
 } from "react";
 
@@ -13,9 +12,10 @@ import {
   Dimensions,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   DeviceEventEmitter,
+  Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,6 +23,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { PieChart } from "react-native-chart-kit";
 import { useFocusEffect } from "@react-navigation/native";
 import API from "../services/api";
+import { openNotificationListenerSettings } from "../services/notificationListener"; 
 
 const getCategoryIcon = (category) => {
   const iconMap = {
@@ -49,6 +50,7 @@ const getCategoryColor = (category) => {
 export default function DashboardScreen({ navigation }) {
   const [expenses, setExpenses] = useState([]);
   const [user, setUser] = useState(null);
+  const [notificationAccessGranted, setNotificationAccessGranted] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -56,6 +58,17 @@ export default function DashboardScreen({ navigation }) {
       if (data) setUser(JSON.parse(data));
     };
     loadUser();
+  }, []);
+
+  useEffect(() => {
+    const checkNotificationAccess = async () => {
+      if (Platform.OS === "android") {
+        const { isNotificationServiceEnabled } = await import("../services/notificationListener");
+        const enabled = await isNotificationServiceEnabled();
+        setNotificationAccessGranted(enabled);
+      }
+    };
+    checkNotificationAccess();
   }, []);
 
   const getExpenses = useCallback(async () => {
@@ -332,7 +345,27 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.actionText}>Profile</Text>
           </TouchableOpacity>
 
-          {/* DEBUG: Test SMS Button */}
+          {!notificationAccessGranted && Platform.OS === "android" && (
+            <TouchableOpacity 
+              style={styles.notificationAccessButton}
+              onPress={async () => {
+                await openNotificationListenerSettings();
+                // Re-check after returning from settings
+                setTimeout(async () => {
+                  const { isNotificationServiceEnabled } = await import("../services/notificationListener");
+                  const enabled = await isNotificationServiceEnabled();
+                  setNotificationAccessGranted(enabled);
+                }, 1000);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: "#8b5cf615" }]}>
+                <Ionicons name="notifications-outline" size={22} color="#8b5cf6" />
+              </View>
+              <Text style={styles.actionText}>Enable{'\n'}Notifications</Text>
+            </TouchableOpacity>
+          )}
+          
 </View>
 
         {/* SPENDING CHART */}
@@ -448,6 +481,28 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: -0.3,
   },
+  notificationAccessButton: {
+  backgroundColor: "#8b5cf6",
+  padding: 15,
+  borderRadius: 10,
+  marginVertical: 10,
+  flexDirection: "row",
+  alignItems: "center",
+},
+notificationAccessText: {
+  color: "#fff",
+  fontSize: 16,
+  fontWeight: "bold",
+  marginLeft: 10,
+  flex: 1,
+},
+notificationAccessSubtext: {
+  color: "#e0e7ff",
+  fontSize: 12,
+  marginTop: 2,
+  flex: 1,
+},
+
 
   notificationButton: {
     backgroundColor: "#1e293b",

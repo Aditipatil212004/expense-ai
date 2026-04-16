@@ -19,22 +19,32 @@ export const testSmsParsing = async () => {
 };
 
 export const testBackendConnection = async () => {
-  try {
-    console.log("🧪 Testing backend connection to:", BACKEND_BASE_URL);
-    const response = await axios.get(BACKEND_BASE_URL, { timeout: 5000 });
-    console.log("✅ Backend is reachable:", response.data);
-    return true;
-  } catch (error) {
-    console.error("❌ Backend not reachable.");
-    console.error("  URL:", BACKEND_BASE_URL);
-    console.error("  Error:", error.message);
-    console.error("  Response:", error.response?.data || "No response");
-    Alert.alert(
-      "Backend Connection Failed",
-      `Cannot reach ${BACKEND_BASE_URL}.\nError: ${error.message}`
-    );
-    return false;
+  const maxRetries = 3;
+  let lastError;
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      console.log(`🧪 Testing backend connection (Attempt ${i + 1}/${maxRetries}) to:`, BACKEND_BASE_URL);
+      const response = await axios.get(BACKEND_BASE_URL, { timeout: 10000 }); // Increased timeout
+      console.log("✅ Backend is reachable:", response.data);
+      return true;
+    } catch (error) {
+      lastError = error;
+      console.warn(`⚠️ Attempt ${i + 1} failed:`, error.message);
+      
+      if (i < maxRetries - 1) {
+        // Wait before retrying (exponential backoff)
+        const waitTime = Math.pow(2, i) * 1000; // 1s, 2s, 4s
+        console.log(`⏳ Retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
   }
+
+  console.error("❌ Backend not reachable after retries.");
+  console.error("  URL:", BACKEND_BASE_URL);
+  console.error("  Last Error:", lastError.message);
+  return false;
 };
 
 // 🚀 START LISTENER
@@ -127,7 +137,7 @@ export const parseAndSendSms = async (message) => {
     console.log("📄 SMS body:", body);
 
     // 💰 AMOUNT PARSING (FLEXIBLE)
-    const amountMatch = body.match(/(Rs\.?|INR|₹)\s?(\d+(?:,\d+)*(?:\.\d{1,2})?)/i);
+    const amountMatch = body.match(/(?:Rs\.?|INR|₹|Amount)\s*[:\-]?\s*(\d+(?:,\d+)*(?:\.\d{1,2})?)/i);
     const amountText = amountMatch ? amountMatch[2] : null;
 
     let amount;
@@ -152,6 +162,7 @@ export const parseAndSendSms = async (message) => {
     
     // Try multiple patterns
     const merchantPatterns = [
+      /from\s+([A-Za-z0-9\s&.-]+?)(?:\s+(?:on|for|of|amount|INR|Rs|\d))/i,
       /at\s+([A-Za-z0-9\s&.-]+?)(?:\s+(?:on|for|of|amount|INR|Rs|\d))/i,
       /at\s+([A-Za-z0-9\s&.-]+?)$/i,
       /to\s+([A-Za-z0-9\s&.-]+?)(?:\s+(?:on|for|of|amount|INR|Rs|\d))/i,

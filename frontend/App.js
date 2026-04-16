@@ -6,12 +6,17 @@ import { PermissionsAndroid, Platform, Alert } from "react-native";
 import AuthNavigator from "./navigation/AuthNavigator";
 import DrawerNavigator from "./navigation/DrawerNavigator";
 import { startSmsListener, testBackendConnection } from "./services/smsListener";
+import {
+  isNotificationServiceEnabled,
+  subscribeToNotifications,
+} from "./services/notificationListener";
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null);
   const [smsPermissionGranted, setSmsPermissionGranted] = useState(false);
-  const [backendReachable, setBackendReachable] = useState(false);
   const smsSubscriptionRef = useRef(null);
+  const [notificationAccessGranted, setNotificationAccessGranted] = useState(false);
+  const notificationSubscriptionRef = useRef(null);
 
   // LOGIN CHECK
   useEffect(() => {
@@ -29,7 +34,7 @@ export default function App() {
   // TEST BACKEND
   useEffect(() => {
     if (isLoggedIn) {
-      testBackendConnection().then(setBackendReachable);
+      testBackendConnection().then(() => {});
     }
   }, [isLoggedIn]);
 
@@ -76,6 +81,21 @@ export default function App() {
     requestSmsPermissions();
   }, []);
 
+  // CHECK NOTIFICATION ACCESS
+  useEffect(() => {
+    const checkNotificationAccess = async () => {
+      if (Platform.OS === "android") {
+        const enabled = await isNotificationServiceEnabled();
+        setNotificationAccessGranted(enabled);
+        if (!enabled) {
+          console.log("Notification listener access is not enabled");
+        }
+      }
+    };
+
+    checkNotificationAccess();
+  }, []);
+
   // START SMS LISTENER
   useEffect(() => {
     if (isLoggedIn && smsPermissionGranted) {
@@ -95,6 +115,26 @@ export default function App() {
     }
   }, [isLoggedIn, smsPermissionGranted]);
 
+  // START NOTIFICATION LISTENER
+  useEffect(() => {
+    if (isLoggedIn && notificationAccessGranted) {
+      if (notificationSubscriptionRef.current) return;
+
+      const subscription = subscribeToNotifications((notification) => {
+        console.log("Notification received:", notification);
+        // TODO: Process notification and send to backend
+        // You can add logic here to parse and send to /expenses/notifications/ingest
+      });
+
+      notificationSubscriptionRef.current = subscription;
+
+      return () => {
+        subscription?.remove();
+        notificationSubscriptionRef.current = null;
+      };
+    }
+  }, [isLoggedIn, notificationAccessGranted]);
+
   if (isLoggedIn === null) return null;
 
   return (
@@ -103,3 +143,4 @@ export default function App() {
     </NavigationContainer>
   );
 }
+
