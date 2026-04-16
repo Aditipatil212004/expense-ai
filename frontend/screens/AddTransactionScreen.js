@@ -15,6 +15,7 @@ import { createTransaction } from "../services/api";
 
 const categories = ["Food", "Travel", "Shopping", "Bills", "Entertainment"];
 const incomeCategories = ["Salary", "Freelance", "Business", "Investment", "Other Income"];
+const methods = ["UPI", "Card", "Cash", "Bank Transfer"];
 
 export default function AddTransactionScreen({ navigation }) {
   const [amount, setAmount] = useState("");
@@ -22,6 +23,7 @@ export default function AddTransactionScreen({ navigation }) {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Food");
   const [merchant, setMerchant] = useState("");
+  const [method, setMethod] = useState("UPI");
   const [loading, setLoading] = useState(false);
 
   const availableCategories = type === "income" ? incomeCategories : categories;
@@ -43,12 +45,14 @@ export default function AddTransactionScreen({ navigation }) {
         type,
         category,
         description,
+        sourceText: method,
         merchant: merchant || (type === "income" ? "Income Source" : "Manual Entry"),
       });
 
       setAmount("");
       setDescription("");
       setMerchant("");
+      setMethod("UPI");
       setCategory(type === "income" ? "Salary" : "Food");
       setType("expense");
 
@@ -91,6 +95,7 @@ export default function AddTransactionScreen({ navigation }) {
               onPress={() => {
                 setType("expense");
                 setCategory("Food");
+                setMethod("UPI");
               }}
               activeOpacity={0.7}
             >
@@ -105,6 +110,7 @@ export default function AddTransactionScreen({ navigation }) {
               onPress={() => {
                 setType("income");
                 setCategory("Salary");
+                setMethod("Bank Transfer");
               }}
               activeOpacity={0.7}
             >
@@ -160,7 +166,7 @@ export default function AddTransactionScreen({ navigation }) {
         <View style={styles.card}>
           <Text style={styles.label}>Category</Text>
           <View style={styles.chipGrid}>
-            {categories.map((item) => (
+            {availableCategories.map((item) => (
               <TouchableOpacity
                 key={item}
                 style={[
@@ -208,7 +214,7 @@ export default function AddTransactionScreen({ navigation }) {
 
         {/* SUBMIT BUTTON */}
         <TouchableOpacity 
-          onPress={addExpense} 
+          onPress={addTransaction} 
           disabled={loading}
           activeOpacity={0.9}
           style={styles.buttonWrapper}
