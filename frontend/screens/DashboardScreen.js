@@ -221,12 +221,32 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.username}>{user?.name || "User"}</Text>
           </View>
 
-          <TouchableOpacity 
-            style={styles.notificationButton}
-            activeOpacity={0.7}
-          >
+         <TouchableOpacity 
+  style={styles.notificationButton}
+  activeOpacity={0.7}
+  onPress={async () => {
+    if (Platform.OS === "android") {
+      if (!notificationAccessGranted) {
+        await openNotificationListenerSettings();
+
+        // re-check after returning
+        setTimeout(async () => {
+          const { isNotificationServiceEnabled } = await import("../services/notificationListener");
+          const enabled = await isNotificationServiceEnabled();
+          setNotificationAccessGranted(enabled);
+        }, 1000);
+      } else {
+        alert("✅ Notifications already enabled");
+      }
+    }
+  }}
+>
             <View style={styles.notificationDot} />
-            <Ionicons name="notifications-outline" size={24} color="#cbd5e1" />
+           <Ionicons 
+  name="notifications-outline" 
+  size={24} 
+  color={notificationAccessGranted ? "#22c55e" : "#cbd5e1"} 
+/>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -331,26 +351,7 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.actionText}>Profile</Text>
           </TouchableOpacity>
 
-          {!notificationAccessGranted && Platform.OS === "android" && (
-            <TouchableOpacity 
-              style={styles.notificationAccessButton}
-              onPress={async () => {
-                await openNotificationListenerSettings();
-                // Re-check after returning from settings
-                setTimeout(async () => {
-                  const { isNotificationServiceEnabled } = await import("../services/notificationListener");
-                  const enabled = await isNotificationServiceEnabled();
-                  setNotificationAccessGranted(enabled);
-                }, 1000);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: "#8b5cf615" }]}>
-                <Ionicons name="notifications-outline" size={22} color="#8b5cf6" />
-              </View>
-              <Text style={styles.actionText}>Enable{'\n'}Notifications</Text>
-            </TouchableOpacity>
-          )}
+          
         </View>
 
         {/* SPENDING CHART */}

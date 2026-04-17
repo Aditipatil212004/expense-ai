@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import InputField from "../components/InputField";
 import API from "../services/api";
 import { clearSession, setSession } from "../services/authSession";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -34,10 +35,19 @@ export default function LoginScreen({ navigation }) {
 
       const token = res.data.token;
 
-      await setSession({
-        token,
-        user: res.data.user,
-      });
+      const existing = await AsyncStorage.getItem("user");
+const localUser = existing ? JSON.parse(existing) : {};
+
+const mergedUser = {
+  ...res.data.user,
+  avatarUrl: localUser.avatarUrl || res.data.user.avatarUrl,
+  name: localUser.name || res.data.user.name,
+};
+
+await setSession({
+  token,
+  user: mergedUser,
+});
 
     } catch (err) {
       console.log("LOGIN ERROR:", err.response?.data || err.message);

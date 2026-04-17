@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { PermissionsAndroid, Platform, Alert } from "react-native";
 
 import AuthNavigator from "./navigation/AuthNavigator";
-import DrawerNavigator from "./navigation/DrawerNavigator";
+import MainStack from "./navigation/MainStack";
 import { startSmsListener, testBackendConnection } from "./services/smsListener";
 import { parseAndSendNotification } from "./services/expenseIngestion";
 import {
@@ -167,7 +167,7 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      {isLoggedIn ? <DrawerNavigator /> : <AuthNavigator />}
+      {isLoggedIn ? <MainStack /> : <AuthNavigator />}
     </NavigationContainer>
   );
 }

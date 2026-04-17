@@ -1,4 +1,4 @@
-// javascript
+
 import {
   View,
   Text,
@@ -7,26 +7,90 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  SafeAreaView,
+  Dimensions,
+  Platform,
 } from "react-native";
+import { Animated } from "react-native";
+import * as Haptics from 'expo-haptics';
+import { useRef } from "react";
+import { useLayoutEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { ActivityIndicator } from "react-native";
+
+import React, { useCallback } from 'react';
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { clearSession } from "../services/authSession";
+import { Linking } from "react-native";
+
 
 export default function ProfileScreen({ navigation }) {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+// const scaleAnim = useRef(new Animated.Value(1)).current; // Fixed: moved to ProfileItem local
+  const badgeAnim = useRef(new Animated.Value(1)).current;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerStyle: { backgroundColor: 'transparent' },
+      headerTintColor: '#ffffff',
+      headerTransparent: true,
+      headerTitle: '',
+      headerLeft: () => (
+        <TouchableOpacity
+          style={{ marginLeft: 24 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="chevron-back" size={24} color="#fff" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   useEffect(() => {
-    const getUser = async () => {
-      const data = await AsyncStorage.getItem("user");
-      if (data) {
-        setUser(JSON.parse(data));
+    badgeAnim.addListener(({ value }) => {
+      if (value === 1) {
+        Animated.sequence([
+          Animated.timing(badgeAnim, {
+            toValue: 1.1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(badgeAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          })
+        ]).start();
       }
-    };
-
-    getUser();
+    });
+    badgeAnim.setValue(1);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+     const getUser = async () => {
+  try {
+    const data = await AsyncStorage.getItem("user");
+    if (data) {
+      setUser(JSON.parse(data));
+    }
+  } catch (error) {
+    console.error('Error loading user:', error);
+  } finally {
+    setLoading(false); // ✅ THIS LINE FIXES IT
+  }
+};
+      getUser();
+    }, [])
+  );
+  const showHelp = () => {
+  navigation.navigate('HelpSupport');
+};
 
   const logout = () => {
     Alert.alert(
@@ -49,14 +113,6 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  const showComingSoon = (feature) => {
-    Alert.alert(
-      feature,
-      "This feature is coming soon!",
-      [{ text: "OK" }]
-    );
-  };
-
   const showAbout = () => {
     Alert.alert(
       "About Expense Tracker",
@@ -65,8 +121,19 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <View style={styles.loadingSpinner}>
+          <ActivityIndicator size="large" color="#8b5cf6" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -75,7 +142,7 @@ export default function ProfileScreen({ navigation }) {
         {/* PROFILE HEADER CARD */}
         <View style={styles.headerCard}>
           <LinearGradient
-            colors={["#8b5cf6", "#7c3aed", "#6d28d9"]}
+            colors={["#8b5cf6", "#7c3aed","#6d28d9","#5b21b6","#4c1d95"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.headerGradient}
@@ -88,91 +155,44 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.avatarContainer}>
               <View style={styles.avatarWrapper}>
                 <Image
-                  source={{ uri: "https://i.pravatar.cc/150" }}
+                  source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150" }}
                   style={styles.avatar}
                 />
-                <View style={styles.avatarBadge}>
-                  <Ionicons name="checkmark" size={16} color="#fff" />
-                </View>
+                <Animated.View style={[styles.avatarBadge, { transform: [{ scale: badgeAnim }] }]}>
+  <Ionicons name="checkmark" size={16} color="#fff" />
+</Animated.View>
               </View>
             </View>
 
             <Text style={styles.name}>{user?.name || "User"}</Text>
             <Text style={styles.email}>{user?.email || "No email"}</Text>
 
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>0</Text>
-                <Text style={styles.statLabel}>Transactions</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>0</Text>
-                <Text style={styles.statLabel}>Budgets</Text>
-              </View>
-            </View>
-          </LinearGradient>
+            </LinearGradient>
         </View>
 
-        {/* ACCOUNT SECTION */}
+        {/* ACCOUNT */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Settings</Text>
-          
+          <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.optionsCard}>
             <ProfileItem 
               icon="person-outline" 
               text="Edit Profile" 
               subtitle="Update your personal information"
-              onPress={() => showComingSoon("Edit Profile")}
-            />
-            <ProfileItem 
-              icon="lock-closed-outline" 
-              text="Change Password" 
-              subtitle="Update your security credentials"
-              onPress={() => showComingSoon("Change Password")}
-            />
-            <ProfileItem 
-              icon="shield-checkmark-outline" 
-              text="Privacy & Security" 
-              subtitle="Manage your privacy settings"
-              onPress={() => navigation.navigate("Settings")}
+              onPress={() => navigation.navigate("EditProfile")}
               hideDivider
             />
           </View>
         </View>
 
-        {/* PREFERENCES SECTION */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-          
-          <View style={styles.optionsCard}>
-            <ProfileItem 
-              icon="notifications-outline" 
-              text="Notifications" 
-              subtitle="Manage notification settings"
-              onPress={() => navigation.navigate("Settings")}
-            />
-            <ProfileItem 
-              icon="moon-outline" 
-              text="Dark Mode" 
-              subtitle="Switch app appearance"
-              onPress={() => navigation.navigate("Settings")}
-              hideDivider
-            />
-          </View>
-        </View>
-
-        {/* SUPPORT SECTION */}
+        {/* SUPPORT */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
-          
           <View style={styles.optionsCard}>
             <ProfileItem 
               icon="help-circle-outline" 
               text="Help & Support" 
               subtitle="Get help with the app"
-              onPress={() => showComingSoon("Help & Support")}
-            />
+              onPress={showHelp} />
             <ProfileItem 
               icon="information-circle-outline" 
               text="About" 
@@ -183,34 +203,62 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
+
         {/* LOGOUT BUTTON */}
-        <TouchableOpacity 
+<TouchableOpacity 
           style={styles.logoutButton}
           onPress={logout}
-          activeOpacity={0.7}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Logout of account"
         >
+          <LinearGradient
+            colors={["rgba(239, 68, 68, 0.1)", "rgba(239, 68, 68, 0.05)"]}
+            style={styles.logoutGradient}
+          />
           <View style={styles.logoutContent}>
             <View style={styles.logoutIconContainer}>
-              <Ionicons name="log-out-outline" size={22} color="#ef4444" />
+              <Ionicons name="log-out-outline" size={24} color="#ef4444" />
             </View>
             <Text style={styles.logoutText}>Logout</Text>
-            <Ionicons name="chevron-forward" size={20} color="#ef4444" />
+            <Ionicons name="chevron-forward" size={22} color="#ef4444" />
           </View>
         </TouchableOpacity>
 
         <Text style={styles.appVersion}>Version 1.0.0</Text>
 
-      </ScrollView>
-    </View>
+     </ScrollView>
+</SafeAreaView>
   );
 }
 
-const ProfileItem = ({ icon, text, subtitle, onPress, hideDivider }) => (
-  <TouchableOpacity 
-    style={styles.item} 
-    activeOpacity={0.7}
-    onPress={onPress}
-  >
+const ProfileItem = ({ icon, text, subtitle, onPress, hideDivider }) => {
+  const localScaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePress = () => {
+    Animated.spring(localScaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      tension: 200,
+    }).start(() => {
+      Animated.spring(localScaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 3,
+      }).start();
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress?.();
+  };
+
+  return (
+    <TouchableOpacity 
+      style={[styles.item, { transform: [{ scale: localScaleAnim }] }]} 
+      activeOpacity={0.85}
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={text}
+    >
     <View style={styles.itemIconContainer}>
       <Ionicons name={icon} size={22} color="#8b5cf6" />
     </View>
@@ -225,7 +273,7 @@ const ProfileItem = ({ icon, text, subtitle, onPress, hideDivider }) => (
     {!hideDivider && <View style={styles.itemDivider} />}
   </TouchableOpacity>
 );
-
+};
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -296,12 +344,13 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 4,
     borderColor: "rgba(255, 255, 255, 0.3)",
   },
+
 
   avatarBadge: {
     position: "absolute",
@@ -315,24 +364,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 3,
     borderColor: "#8b5cf6",
+   
   },
 
   name: {
     color: "#fff",
     fontSize: 28,
-    fontWeight: "700",
+    fontWeight: "800",
     textAlign: "center",
     marginBottom: 6,
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
 
   email: {
     color: "#e9d5ff",
-    fontSize: 15,
-    fontWeight: "500",
+    fontSize: 16,
+    fontWeight: "600",
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 8,
+    letterSpacing: -0.2,
+    opacity: 0.9,
   },
+
+
 
   statsContainer: {
     flexDirection: "row",
@@ -383,20 +438,26 @@ const styles = StyleSheet.create({
 
   optionsCard: {
     backgroundColor: "#1e293b",
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: "rgba(139, 92, 246, 0.2)",
   },
 
   item: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 18,
+    padding: 20,
     position: "relative",
+  },
+
+  itemPress: {
+  
   },
 
   itemIconContainer: {
@@ -437,18 +498,28 @@ const styles = StyleSheet.create({
 
   logoutButton: {
     marginHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 20,
-    backgroundColor: "#1e293b",
-    borderRadius: 20,
+    marginTop: 12,
+    marginBottom: 24,
+    backgroundColor: "rgba(30, 41, 59, 0.8)",
+    borderRadius: 24,
     overflow: "hidden",
-    borderWidth: 1.5,
-    borderColor: "rgba(239, 68, 68, 0.3)",
+    borderWidth: 2,
+    borderColor: "rgba(239, 68, 68, 0.4)",
     shadowColor: "#ef4444",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+
+  logoutGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 24,
+    opacity: 0.1,
   },
 
   logoutContent: {

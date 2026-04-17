@@ -11,7 +11,7 @@ export const setSession = async ({ token, user }) => {
 
 export const clearSession = async () => {
   await AsyncStorage.removeItem("token");
-  await AsyncStorage.removeItem("user");
+  
   DeviceEventEmitter.emit(AUTH_STATE_CHANGED, false);
 };
 
