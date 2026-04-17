@@ -34,21 +34,19 @@ export default function SignupScreen({ navigation }) {
 
     try {
       setLoading(true);
-      const res = await API.post("/auth/signup", {
-        name: normalizedName,
-        email: normalizedEmail,
-        password,
-      });
+   const res = await API.post("/auth/signup", {
+  name: normalizedName,
+  email: normalizedEmail,
+  password,
+});
 
-      const token = res.data.token;
+Alert.alert("Success", "Account created successfully! Please login.");
 
-      await setSession({
-        token,
-        user: res.data.user,
-      });
-      setName("");
-      setEmail("");
-      setPassword("");
+setName("");
+setEmail("");
+setPassword("");
+
+navigation.replace("Login"); // ✅ THIS LINE
     } catch (err) {
       console.log(err.response?.data || err.message);
       Alert.alert("Signup Failed", err.response?.data?.message || "Unable to create your account.");
